@@ -1,0 +1,82 @@
+# ============================================
+# Liga de Fútbol — .gitignore raíz
+# ============================================
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Builds
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+nest-cli.json~
+
+# Entornos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Cobertura de tests
+coverage/
+.nyc_output/
+
+# Cachés
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Pruebas E2E
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Prisma migrations - generadas, pero SÍ se commitean
+# (la convención de Prisma es commitearlas)
+
+# Uploads locales (comprobantes, documentos)
+uploads/
+storage/
+public/uploads/
+
+# Sistema de logs de NestJS (si los hubiera)
+*.pid
+*.seed
+*.pid.lock
+
+# Archivos de sistema Windows
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
