@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Trophy, Users, Shield, Calendar, Hash, MapPin, Play, Pencil, Trash2, RefreshCw, Clock, FileText,
   Target, Award, AlertTriangle, ListChecks, ArrowLeft,
@@ -18,6 +19,8 @@ type Partido = {
   jornada: number | null;
   etapaEliminatoria: string | null;
   esIda: boolean;
+  equipoLocalId: string;
+  equipoVisitanteId: string;
   fechaProgramada: string | null;
   horaProgramada: string | null;
   cancha: string | null;

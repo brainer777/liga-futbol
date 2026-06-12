@@ -10,11 +10,19 @@ import { X } from 'lucide-react';
 export interface FieldDef {
   name: string;
   label: string;
-  type?: 'text' | 'email' | 'number' | 'date' | 'checkbox' | 'textarea' | 'select';
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'checkbox' | 'textarea' | 'select' | 'multiselect';
   required?: boolean;
   placeholder?: string;
   options?: { value: string; label: string }[];
   defaultValue?: any;
+  /** Texto de ayuda mostrado bajo el campo */
+  hint?: string;
+}
+
+function emptyValue(type?: FieldDef['type']) {
+  if (type === 'checkbox') return false;
+  if (type === 'multiselect') return [];
+  return '';
 }
 
 interface FormModalProps {
@@ -31,7 +39,7 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
   const [values, setValues] = React.useState<Record<string, any>>(() => {
     const init: Record<string, any> = {};
     for (const f of fields) {
-      init[f.name] = initialValues?.[f.name] ?? f.defaultValue ?? (f.type === 'checkbox' ? false : '');
+      init[f.name] = initialValues?.[f.name] ?? f.defaultValue ?? emptyValue(f.type);
     }
     return init;
   });
@@ -41,7 +49,7 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
   React.useEffect(() => {
     if (open) {
       const init: Record<string, any> = {};
-      for (const f of fields) init[f.name] = initialValues?.[f.name] ?? f.defaultValue ?? (f.type === 'checkbox' ? false : '');
+      for (const f of fields) init[f.name] = initialValues?.[f.name] ?? f.defaultValue ?? emptyValue(f.type);
       setValues(init);
       setError(null);
     }
@@ -110,6 +118,38 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
+                ) : f.type === 'multiselect' ? (
+                  <div className="flex flex-wrap gap-2">
+                    {f.options?.length ? (
+                      f.options.map((o) => {
+                        const arr: string[] = Array.isArray(values[f.name]) ? values[f.name] : [];
+                        const checked = arr.includes(o.value);
+                        return (
+                          <label
+                            key={o.value}
+                            className={
+                              'flex items-center gap-2 text-sm border rounded-md px-2.5 py-1 cursor-pointer select-none ' +
+                              (checked ? 'border-primary bg-primary/10' : 'border-input')
+                            }
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...arr, o.value]
+                                  : arr.filter((v) => v !== o.value);
+                                setValues({ ...values, [f.name]: next });
+                              }}
+                            />
+                            {o.label}
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Sin opciones disponibles.</span>
+                    )}
+                  </div>
                 ) : (
                   <Input
                     id={f.name}
@@ -125,6 +165,7 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
                     placeholder={f.placeholder}
                   />
                 )}
+                {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
               </div>
             ))}
             {error && (

@@ -14,6 +14,8 @@ import {
   FileText,
   LogOut,
   UserPlus,
+  UserCog,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -29,6 +31,14 @@ const navItems = [
   { href: '/dashboard/pagos', label: 'Pagos', icon: DollarSign },
 ];
 
+// Solo visible para roles administrativos (mismos que exige el backend).
+const adminNavItems = [
+  { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog },
+  { href: '/dashboard/roles', label: 'Roles', icon: KeyRound },
+];
+
+const ROLES_ADMIN = ['Superadministrador', 'Administrador de liga'];
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -37,6 +47,26 @@ export function Sidebar() {
   const onLogout = () => {
     logout();
     router.push('/login');
+  };
+
+  const isAdmin = !!user?.roles.some((r) => ROLES_ADMIN.includes(r.nombre));
+
+  const renderItem = (item: { href: string; label: string; icon: typeof LayoutDashboard }) => {
+    const Icon = item.icon;
+    const active = pathname === item.href;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          active ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-foreground',
+        )}
+      >
+        <Icon className="h-4 w-4" />
+        {item.label}
+      </Link>
+    );
   };
 
   return (
@@ -54,23 +84,16 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                active ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-foreground',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+        {navItems.map(renderItem)}
+
+        {isAdmin && (
+          <>
+            <div className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Administración
+            </div>
+            {adminNavItems.map(renderItem)}
+          </>
+        )}
       </nav>
 
       <div className="p-3 border-t">

@@ -212,7 +212,7 @@ export function ResultadoModal({ partido, onClose, onSaved }: Props) {
                     .find((j: any) => j.id === e.jugadorId);
                   return (
                     <div key={i} className="flex items-center gap-2 border rounded-md p-2 text-sm">
-                      <span className="font-mono text-xs text-muted-foreground w-8">{e.minuto || '—}'</span>
+                      <span className="font-mono text-xs text-muted-foreground w-8">{e.minuto || '—'}</span>
                       <Badge variant={
                         e.tipo === 'gol' || e.tipo === 'asistencia' ? 'success' :
                         e.tipo === 'amarilla' ? 'warning' :
