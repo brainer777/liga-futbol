@@ -32,6 +32,6 @@ export class UpdateTorneoDto {
   @IsOptional() @Type(() => Number) @IsInt() puntosDerrota?: number;
   @IsOptional() @IsString() criterioDesempate?: string;
   @IsOptional() @IsBoolean() permiteReprogramacion?: boolean;
-  @IsOptional() @IsString() @IsIn(['borrador', 'activo', 'en_curso', 'finalizado', 'cancelado'])
+  @IsOptional() @IsString() @IsIn(['borrador', 'en_curso', 'finalizado', 'cancelado'])
   estado?: string;
 }

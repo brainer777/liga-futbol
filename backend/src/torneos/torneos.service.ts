@@ -215,10 +215,10 @@ export class TorneosService {
         }
       }
 
-      // 5) Cambiar estado del torneo a activo
+      // 5) Generado el fixture, el torneo pasa a "en_curso"
       await tx.torneo.update({
         where: { id: torneoId },
-        data: { estado: 'activo' },
+        data: { estado: 'en_curso' },
       });
 
       return {

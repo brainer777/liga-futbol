@@ -214,7 +214,7 @@ export default function TorneoDetallePage() {
               <Badge variant="outline">{FORMATO_LABEL[torneo.formato] || torneo.formato}</Badge>
               <Badge variant="secondary">Puntos: {torneo.puntosVictoria} / {torneo.puntosEmpate} / {torneo.puntosDerrota}</Badge>
               <Badge variant="secondary">Desempate: {torneo.criterioDesempate}</Badge>
-              <Badge variant={torneo.estado === 'activo' || torneo.estado === 'en_curso' ? 'success' : 'secondary'}>
+              <Badge variant={torneo.estado === 'en_curso' ? 'success' : 'secondary'}>
                 {torneo.estado}
               </Badge>
             </div>

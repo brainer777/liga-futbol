@@ -95,7 +95,7 @@ export default function TorneosPage() {
     { id: 'pts', header: 'Puntos', cell: ({ row }) => `${row.original.puntosVictoria}/${row.original.puntosEmpate}/${row.original.puntosDerrota}` },
     {
       accessorKey: 'estado', header: 'Estado',
-      cell: ({ getValue }) => <Badge variant={getValue() === 'activo' || getValue() === 'en_curso' ? 'success' : 'secondary'}>{getValue() as string}</Badge>,
+      cell: ({ getValue }) => <Badge variant={getValue() === 'en_curso' ? 'success' : 'secondary'}>{getValue() as string}</Badge>,
     },
     { id: 'insc', header: 'Inscripciones', cell: ({ row }) => <Badge variant="outline">{row.original._count?.inscripciones ?? 0}</Badge> },
     {
