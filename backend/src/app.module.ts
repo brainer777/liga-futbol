@@ -18,6 +18,7 @@ import { JugadoresModule } from './jugadores/jugadores.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ResultadosModule } from './resultados/resultados.module';
 import { PublicoModule } from './publico/publico.module';
+import { ReportesModule } from './reportes/reportes.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -47,6 +48,7 @@ import { HealthController } from './health/health.controller';
     UploadsModule,
     ResultadosModule,
     PublicoModule,
+    ReportesModule,
   ],
   controllers: [HealthController],
 })

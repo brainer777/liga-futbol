@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Trophy, Users, Shield, Calendar, Hash, MapPin, Play, Pencil, Trash2, RefreshCw, Clock, FileText,
-  Target, Award, AlertTriangle, ListChecks, ArrowLeft,
+  Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer,
 } from 'lucide-react';
-import { api, getApiErrorMessage } from '@/lib/api';
+import { api, getApiErrorMessage, downloadFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -231,6 +232,36 @@ export default function TorneoDetallePage() {
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* Exportar / Reportes */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-2">
+        <span className="text-xs font-medium text-muted-foreground px-1 inline-flex items-center gap-1">
+          <Download className="h-3.5 w-3.5" /> Exportar CSV:
+        </span>
+        {[
+          { key: 'tabla', label: 'Posiciones' },
+          { key: 'goleadores', label: 'Goleadores' },
+          { key: 'tarjetas', label: 'Tarjetas' },
+          { key: 'fixture', label: 'Fixture' },
+        ].map((r) => (
+          <Button
+            key={r.key}
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              downloadFile(`/reportes/torneos/${params.id}/${r.key}.csv`, `${r.key}-${params.id}.csv`)
+                .catch((e) => alert(getApiErrorMessage(e)))
+            }
+          >
+            {r.label}
+          </Button>
+        ))}
+        <Link href={`/publico/torneos/${params.id}/reporte`} target="_blank" className="ml-auto">
+          <Button variant="outline" size="sm">
+            <Printer className="h-4 w-4" /> Vista imprimible (PDF)
+          </Button>
+        </Link>
       </div>
 
       {/* Tabs / Secciones */}

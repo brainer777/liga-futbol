@@ -6,7 +6,7 @@ import { LogIn } from 'lucide-react';
 export default function PublicoLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-muted/20">
-      <header className="border-b bg-card">
+      <header className="border-b bg-card print:hidden">
         <div className="max-w-5xl mx-auto w-full px-4 py-3 flex items-center justify-between">
           <Link href="/publico" className="flex items-center gap-2 font-bold">
             <span className="h-8 w-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground">⚽</span>
@@ -24,7 +24,7 @@ export default function PublicoLayout({ children }: { children: React.ReactNode 
         </div>
       </header>
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">{children}</main>
-      <footer className="border-t py-4 text-center text-xs text-muted-foreground">
+      <footer className="border-t py-4 text-center text-xs text-muted-foreground print:hidden">
         Liga de Fútbol — resultados y posiciones en vivo
       </footer>
     </div>

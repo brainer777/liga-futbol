@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays } from 'lucide-react';
+import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays, Printer } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -89,11 +89,19 @@ export default function TorneoPublicoPage() {
         <ArrowLeft className="h-4 w-4" /> Volver a torneos
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold">{torneo.data?.nombre ?? 'Torneo'}</h1>
-        <p className="text-muted-foreground text-sm">
-          {torneo.data?.categoria?.nombre} · {torneo.data?.temporada?.nombre}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{torneo.data?.nombre ?? 'Torneo'}</h1>
+          <p className="text-muted-foreground text-sm">
+            {torneo.data?.categoria?.nombre} · {torneo.data?.temporada?.nombre}
+          </p>
+        </div>
+        <Link
+          href={`/publico/torneos/${id}/reporte`}
+          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent shrink-0"
+        >
+          <Printer className="h-4 w-4" /> Reporte
+        </Link>
       </div>
 
       <div className="flex gap-1 border-b overflow-x-auto">
