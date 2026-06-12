@@ -8,7 +8,7 @@
 |---|---|
 | **Frontend** | Next.js 15 (App Router) + TypeScript + Tailwind + shadcn-style UI |
 | **Backend** | NestJS 10 + Prisma 5 + class-validator + Passport (JWT) |
-| **Base de datos** | PostgreSQL 16 — embebido (no requiere instalación) |
+| **Base de datos** | PostgreSQL 16 — embebido en local; contenedor real con Docker |
 | **Auth** | JWT + bcrypt + Guards + Decorators + RBAC |
 | **Gestión de estado** | Zustand (auth) + TanStack Query (server state) |
 | **Formularios** | react-hook-form + zod |
@@ -55,6 +55,55 @@ npm run frontend:dev
 > npx prisma migrate dev --name <nombre>
 > npx prisma generate
 > ```
+
+## 🐳 Docker (stack completo)
+
+Levanta **base de datos + backend + frontend** en contenedores, sin instalar Node ni PostgreSQL en tu máquina. Pensado para correr el sistema completo con un comando.
+
+### Requisitos
+
+- **Docker Engine** + **Docker Compose v2** (`docker compose version`).
+
+### Puesta en marcha
+
+```bash
+# 1. Copiá las variables y completá los secretos (POSTGRES_PASSWORD y JWT_SECRET)
+cp .env.docker.example .env
+#    Tip para generar un secreto fuerte:  openssl rand -base64 32
+
+# 2. Build + arranque de los 3 servicios
+docker compose up --build        # agregá -d para correr en segundo plano
+```
+
+Una vez arriba:
+
+| Servicio | URL |
+|---|---|
+| **Frontend** | http://localhost:3000 |
+| **API** | http://localhost:3001/api |
+| **Swagger UI** | http://localhost:3001/api/docs |
+| **Health** | http://localhost:3001/api/health |
+
+Entrá con las [credenciales por defecto](#-credenciales-por-defecto) (`admin@liga.com` / `admin123`).
+
+### Cómo funciona
+
+- **db** → `postgres:16` con healthcheck; los datos persisten en el volumen `pgdata`.
+- **backend** → al arrancar corre `prisma migrate deploy` y **siembra la base solo si está vacía** (idempotente: el admin se crea una sola vez). El PostgreSQL embebido queda desactivado (`USE_EMBEDDED_POSTGRES=false`); usa el servicio `db`.
+- **frontend** → imagen Next.js `standalone`. La URL de la API (`NEXT_PUBLIC_API_BASE_URL`) se **hornea en build** porque las llamadas las hace el navegador; si exponés el backend en otro host/puerto, ajustá esa variable en `.env` y reconstruí.
+- El arranque está encadenado por *healthchecks*: `frontend` espera a que `backend` esté sano, y `backend` a que `db` lo esté.
+
+### Comandos útiles
+
+```bash
+docker compose logs -f backend     # ver logs del backend en vivo
+docker compose ps                  # estado de los contenedores
+docker compose down                # detener (conserva los datos)
+docker compose down -v             # detener y BORRAR datos (volúmenes)
+docker compose up -d --build       # reconstruir tras cambios de código
+```
+
+> El primer build descarga las imágenes base y corre `npm ci` en ambos proyectos, así que tarda unos minutos. Los siguientes usan caché.
 
 ## 🔑 Credenciales por defecto
 
