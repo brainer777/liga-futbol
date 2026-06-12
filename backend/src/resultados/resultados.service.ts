@@ -343,10 +343,13 @@ export class ResultadosService {
       eventosPorPartido,
     );
     for (const s of stats) {
+      // `s` (de calcularEstadicasJugador) no trae torneoId, y es requerido en
+      // EstadisticaJugador → hay que inyectarlo en create/update.
+      const data = { ...s, torneoId };
       await tx.estadisticaJugador.upsert({
         where: { torneoId_jugadorId: { torneoId, jugadorId: s.jugadorId } },
-        update: s,
-        create: s,
+        update: data,
+        create: data,
       });
     }
   }

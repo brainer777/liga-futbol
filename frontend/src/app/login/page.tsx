@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -79,6 +80,11 @@ export default function LoginPage() {
               Credenciales por defecto: <code>admin@liga.com</code> / <code>admin123</code>
             </p>
           </form>
+          <div className="mt-4 pt-4 border-t text-center">
+            <Link href="/publico" className="text-sm text-primary hover:underline">
+              Ver resultados y posiciones (portal público) →
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
