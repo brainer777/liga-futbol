@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { APP_DEFAULTS } from './config/database.config';
 
@@ -10,6 +11,20 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+
+  // Cabeceras de seguridad. CSP desactivado para no romper Swagger UI (la API
+  // no sirve HTML propio); CORP en cross-origin para poder cargar /uploads
+  // desde el frontend en otro origen.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  // Detrás de un reverse proxy (Nginx) confiamos en el primer hop, así req.ip
+  // es la IP real del cliente (necesario para que el rate-limiting sea por IP).
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   app.setGlobalPrefix(APP_DEFAULTS.apiPrefix);
 

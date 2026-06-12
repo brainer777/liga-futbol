@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { join } from 'path';
 import { EmbeddedPostgresModule } from './embedded-postgres/embedded-postgres.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -28,6 +30,16 @@ import { HealthController } from './health/health.controller';
       isGlobal: true,
       envFilePath: ['.env', '.env.local'],
     }),
+    // Rate-limiting global por IP. Configurable por env; default 100 req / 60s.
+    // Se resuelve con factory (no constante) para leer el .env ya cargado.
+    ThrottlerModule.forRootAsync({
+      useFactory: () => [
+        {
+          ttl: Number(process.env.THROTTLE_TTL_MS) || 60_000,
+          limit: Number(process.env.THROTTLE_LIMIT) || 100,
+        },
+      ],
+    }),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
@@ -53,5 +65,9 @@ import { HealthController } from './health/health.controller';
     AuditoriaModule,
   ],
   controllers: [HealthController],
+  providers: [
+    // Aplica el rate-limiting a toda la app
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
