@@ -1,0 +1,75 @@
+# ============================================
+# Liga de Fútbol — stack completo (db + backend + frontend)
+# ============================================
+# Uso:
+#   1. cp .env.docker.example .env   (y completá los CHANGE_ME)
+#   2. docker compose up --build
+#   3. Frontend: http://localhost:3000  |  API/Swagger: http://localhost:3001/api/docs
+#
+# La base se siembra automáticamente en el PRIMER arranque (mientras esté vacía).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-liga_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-liga_futbol}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liga_user} -d ${POSTGRES_DB:-liga_futbol}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Descomentá si querés conectarte a la BD desde el host (p.ej. con un cliente SQL):
+    # ports:
+    #   - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      API_PREFIX: api
+      # Forzamos Postgres externo (servicio db); el embebido queda desactivado.
+      USE_EMBEDDED_POSTGRES: "false"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-liga_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-liga_futbol}?schema=public
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:?Definí JWT_SECRET en .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-10}
+      UPLOAD_DIR: ./uploads
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10}
+      THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+      LOG_LEVEL: ${LOG_LEVEL:-log}
+      # Sembrar sólo si la base está vacía (ver docker-entrypoint.sh).
+      SEED_ON_EMPTY: ${SEED_ON_EMPTY:-true}
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "3001:3001"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Se hornea en build: lo usa el navegador del usuario (no el contenedor).
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001/api}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  uploads:

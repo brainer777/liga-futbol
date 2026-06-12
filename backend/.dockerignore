@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.env
+.env.*
+!.env.example
+.pgdata
+**/.pgdata
+uploads
+coverage
+*.log
+.DS_Store
+test
+*.spec.ts
