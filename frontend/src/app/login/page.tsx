@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
+import { useBranding, fileUrl } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const { data: branding } = useBranding();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -52,8 +54,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 dark:from-zinc-900 dark:to-zinc-800 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="text-4xl mb-2">⚽</div>
-          <CardTitle>Liga de Fútbol</CardTitle>
+          {branding?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl(branding.logoUrl)!} alt="" className="mx-auto mb-2 h-16 w-auto object-contain" />
+          ) : (
+            <div className="text-4xl mb-2">⚽</div>
+          )}
+          <CardTitle>{branding?.nombreLiga ?? 'Liga de Fútbol'}</CardTitle>
           <CardDescription>Iniciar sesión en el panel</CardDescription>
         </CardHeader>
         <CardContent>

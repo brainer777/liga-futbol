@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
+import { useBranding, fileUrl } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   UserCog,
   KeyRound,
   ScrollText,
+  Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -39,12 +41,18 @@ const adminNavItems = [
   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ScrollText },
 ];
 
+// Solo Superadministrador (mismo gate que el backend de /configuracion).
+const superadminNavItems = [
+  { href: '/dashboard/apariencia', label: 'Apariencia', icon: Palette },
+];
+
 const ROLES_ADMIN = ['Superadministrador', 'Administrador de liga'];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { data: branding } = useBranding();
 
   const onLogout = () => {
     logout();
@@ -52,6 +60,7 @@ export function Sidebar() {
   };
 
   const isAdmin = !!user?.roles.some((r) => ROLES_ADMIN.includes(r.nombre));
+  const isSuperadmin = !!user?.roles.some((r) => r.nombre === 'Superadministrador');
 
   const renderItem = (item: { href: string; label: string; icon: typeof LayoutDashboard }) => {
     const Icon = item.icon;
@@ -75,11 +84,16 @@ export function Sidebar() {
     <aside className="hidden md:flex w-64 flex-col border-r bg-card">
       <div className="p-6 border-b">
         <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold">
-            ⚽
-          </div>
+          {branding?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl(branding.logoUrl)!} alt="" className="h-9 w-9 rounded-md object-contain" />
+          ) : (
+            <div className="h-9 w-9 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold">
+              ⚽
+            </div>
+          )}
           <div>
-            <div className="font-bold leading-none">Liga de Fútbol</div>
+            <div className="font-bold leading-none">{branding?.nombreLiga ?? 'Liga de Fútbol'}</div>
             <div className="text-xs text-muted-foreground mt-1">Panel de gestión</div>
           </div>
         </div>
@@ -94,6 +108,7 @@ export function Sidebar() {
               Administración
             </div>
             {adminNavItems.map(renderItem)}
+            {isSuperadmin && superadminNavItems.map(renderItem)}
           </>
         )}
       </nav>
