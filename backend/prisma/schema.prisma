@@ -677,3 +677,25 @@ model Auditoria {
   @@index([createdAt])
   @@map("auditoria")
 }
+
+// ============================================
+// CONFIGURACIÓN / BRANDING
+// ============================================
+// Fila ÚNICA (singleton) con la personalización visual de la liga.
+// `singleton` es @unique y siempre true → garantiza una sola fila; el servicio
+// hace upsert con `where: { singleton: true }`.
+// `colorPrimario` se guarda como triple HSL "H S% L%" (lo que consume la
+// variable CSS --primary del frontend), NO como hex.
+// Diseñado para extenderse a multi-liga: en el futuro se le agrega `ligaId`.
+model Configuracion {
+  id            String   @id @default(uuid()) @db.Uuid
+  singleton     Boolean  @unique @default(true)
+  nombreLiga    String   @default("Liga de Fútbol") @map("nombre_liga") @db.VarChar(100)
+  logoUrl       String?  @map("logo_url")
+  faviconUrl    String?  @map("favicon_url")
+  colorPrimario String   @default("142 70% 35%") @map("color_primario") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("configuracion")
+}

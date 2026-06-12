@@ -14,6 +14,11 @@ import { PublicoService } from './publico.service';
 export class PublicoController {
   constructor(private readonly service: PublicoService) {}
 
+  @Get('configuracion')
+  configuracion() {
+    return this.service.configuracionPublica();
+  }
+
   @Get('torneos')
   torneos() {
     return this.service.torneos();

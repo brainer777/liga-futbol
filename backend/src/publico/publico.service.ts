@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ResultadosService } from '../resultados/resultados.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 
 /**
  * Servicio del portal público (sin autenticación).
@@ -23,7 +24,13 @@ export class PublicoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resultados: ResultadosService,
+    private readonly configuracion: ConfiguracionService,
   ) {}
+
+  /** Branding público (nombre, logo, favicon, color) para login y portal. */
+  configuracionPublica() {
+    return this.configuracion.getPublic();
+  }
 
   /** Solo clubes: nombre + sigla + logo (sin contacto). */
   private clubSeguro(club: any) {
