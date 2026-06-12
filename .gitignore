@@ -70,10 +70,11 @@ playwright/.cache/
 # Prisma migrations - generadas, pero SÍ se commitean
 # (la convención de Prisma es commitearlas)
 
-# Uploads locales (comprobantes, documentos)
-uploads/
-storage/
-public/uploads/
+# Uploads locales (comprobantes, documentos) — solo carpetas de runtime,
+# NO el módulo de código backend/src/uploads/
+backend/uploads/
+backend/storage/
+**/public/uploads/
 
 # Sistema de logs de NestJS (si los hubiera)
 *.pid

@@ -10,9 +10,9 @@ dist/
 .env.local
 .env.*.local
 
-# Uploads
-uploads/
-storage/
+# Uploads (carpeta de archivos subidos en runtime; NO el módulo src/uploads)
+/uploads/
+/storage/
 
 # Cobertura
 coverage/
