@@ -16,6 +16,7 @@ import {
   UserPlus,
   UserCog,
   KeyRound,
+  ScrollText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -35,6 +36,7 @@ const navItems = [
 const adminNavItems = [
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog },
   { href: '/dashboard/roles', label: 'Roles', icon: KeyRound },
+  { href: '/dashboard/auditoria', label: 'Auditoría', icon: ScrollText },
 ];
 
 const ROLES_ADMIN = ['Superadministrador', 'Administrador de liga'];

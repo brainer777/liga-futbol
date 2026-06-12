@@ -652,3 +652,28 @@ model EstadisticaEquipo {
   @@index([torneoId])
   @@map("estadisticas_equipo")
 }
+
+// ============================================
+// AUDITORÍA (registro de acciones)
+// ============================================
+// Registro inmutable de quién hizo qué. A propósito NO tiene relación FK a
+// Usuario: guarda un snapshot (usuarioId + usuarioEmail) para que el rastro
+// sobreviva al borrado del usuario y se lea sin joins.
+model Auditoria {
+  id           String   @id @default(uuid()) @db.Uuid
+  usuarioId    String?  @map("usuario_id") @db.Uuid
+  usuarioEmail String?  @map("usuario_email") @db.VarChar(150)
+  metodo       String   @db.VarChar(10)
+  ruta         String   @db.VarChar(255)
+  entidad      String?  @db.VarChar(80)
+  entidadId    String?  @map("entidad_id") @db.VarChar(64)
+  statusCode   Int      @map("status_code")
+  exitoso      Boolean  @default(true)
+  ip           String?  @db.VarChar(64)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([usuarioId])
+  @@index([entidad])
+  @@index([createdAt])
+  @@map("auditoria")
+}

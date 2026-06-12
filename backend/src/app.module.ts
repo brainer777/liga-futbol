@@ -19,6 +19,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { ResultadosModule } from './resultados/resultados.module';
 import { PublicoModule } from './publico/publico.module';
 import { ReportesModule } from './reportes/reportes.module';
+import { AuditoriaModule } from './auditoria/auditoria.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -49,6 +50,7 @@ import { HealthController } from './health/health.controller';
     ResultadosModule,
     PublicoModule,
     ReportesModule,
+    AuditoriaModule,
   ],
   controllers: [HealthController],
 })
