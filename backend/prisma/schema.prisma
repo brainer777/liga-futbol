@@ -1,0 +1,654 @@
+// ============================================
+// Liga de Fútbol — Prisma Schema
+// Sprint 1: auth, usuarios, roles, categorías,
+//            temporadas, clubes, equipos, torneos, inscripciones, pagos
+// Sprint 2: jugadores, validación de edad, documentos, equipo_jugadores
+// Sprint 3: fases, grupos, fixture, partidos, reprogramaciones
+// Sprint 4: resultados, eventos, tabla de posiciones, sanciones, estadísticas
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum EstadoUsuario {
+  activo
+  inactivo
+  bloqueado
+}
+
+enum EstadoGeneral {
+  activo
+  inactivo
+}
+
+enum EstadoTemporada {
+  activa
+  cerrada
+  planificada
+}
+
+enum EstadoInscripcion {
+  preinscrito
+  pendiente_pago
+  pago_parcial
+  pagado
+  aprobado
+  observado
+  rechazado
+  vencido
+}
+
+enum MetodoPago {
+  efectivo
+  transferencia
+}
+
+enum EstadoValidacion {
+  pendiente
+  habilitado
+  observado
+  rechazado
+  suspendido
+}
+
+enum EstadoDocumento {
+  pendiente
+  aprobado
+  rechazado
+  vencido
+}
+
+enum EstadoHabilitacion {
+  pendiente
+  habilitado
+  observado
+  rechazado
+  suspendido
+}
+
+enum EstadoPartido {
+  borrador
+  programado
+  en_juego
+  finalizado
+  suspendido
+  reprogramado
+  cancelado
+}
+
+enum EstadoFase {
+  pendiente
+  activa
+  finalizada
+}
+
+enum TipoFase {
+  liga
+  grupos
+  eliminacion
+}
+
+enum TipoEventoPartido {
+  gol
+  gol_en_contra
+  asistencia
+  amarilla
+  roja
+  doble_amarilla
+  cambio
+  otro
+}
+
+enum EstadoSancion {
+  pendiente
+  cumplida
+  condonada
+  anulada
+}
+
+enum MotivoSancion {
+  acumulacion_amarillas
+  roja_directa
+  doble_amarilla
+  conducta
+  administrativa
+  otro
+}
+
+// ============================================
+// USUARIOS, ROLES Y PERMISOS
+// ============================================
+
+model Usuario {
+  id            String        @id @default(uuid()) @db.Uuid
+  nombre        String        @db.VarChar(150)
+  email         String        @unique @db.VarChar(150)
+  passwordHash  String        @map("password_hash") @db.VarChar(255)
+  estado        EstadoUsuario @default(activo)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  roles         UsuarioRol[]
+  inscripcionesCreadas Inscripcion[] @relation("InscripcionCreador")
+  pagosRegistrados Pago[]         @relation("PagoRegistrador")
+  documentosValidados JugadorDocumento[] @relation("DocumentoValidador")
+  habilitacionesValidadas EquipoJugador[] @relation("HabilitacionValidador")
+  resultadosCerrados Resultado[] @relation("ResultadoCerrador")
+  sancionesAplicadas Sancion[] @relation("SancionAplicador")
+
+  @@map("usuarios")
+}
+
+model Rol {
+  id          String       @id @default(uuid()) @db.Uuid
+  nombre      String       @unique @db.VarChar(80)
+  descripcion String?      @db.VarChar(255)
+  estado      EstadoGeneral @default(activo)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  usuarios    UsuarioRol[]
+
+  @@map("roles")
+}
+
+model Permiso {
+  id          String   @id @default(uuid()) @db.Uuid
+  codigo      String   @unique @db.VarChar(100)
+  descripcion String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("permisos")
+}
+
+model UsuarioRol {
+  id        String   @id @default(uuid()) @db.Uuid
+  usuarioId String   @map("usuario_id") @db.Uuid
+  rolId     String   @map("rol_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  rol       Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, rolId])
+  @@index([usuarioId])
+  @@index([rolId])
+  @@map("usuario_roles")
+}
+
+// ============================================
+// CATEGORÍAS
+// ============================================
+
+model Categoria {
+  id                       String         @id @default(uuid()) @db.Uuid
+  nombre                   String         @unique @db.VarChar(30)
+  edadMinima               Int?           @map("edad_minima")
+  edadMaxima               Int?           @map("edad_maxima")
+  permiteSinCedula         Boolean        @default(false) @map("permite_sin_cedula")
+  validaPorAnioNacimiento  Boolean        @default(false) @map("valida_por_anio_nacimiento")
+  estado                   EstadoGeneral  @default(activo)
+  createdAt                DateTime       @default(now()) @map("created_at")
+  updatedAt                DateTime       @updatedAt @map("updated_at")
+
+  equipos                  Equipo[]
+  torneos                  Torneo[]
+
+  @@map("categorias")
+}
+
+// ============================================
+// TEMPORADAS
+// ============================================
+
+model Temporada {
+  id          String          @id @default(uuid()) @db.Uuid
+  nombre      String          @db.VarChar(100)
+  anio        Int
+  fechaInicio DateTime        @map("fecha_inicio") @db.Date
+  fechaFin    DateTime        @map("fecha_fin") @db.Date
+  estado      EstadoTemporada @default(activa)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  torneos     Torneo[]
+
+  @@unique([anio, nombre])
+  @@map("temporadas")
+}
+
+// ============================================
+// CLUBES
+// ============================================
+
+model Club {
+  id            String        @id @default(uuid()) @db.Uuid
+  nombre        String        @db.VarChar(150)
+  sigla         String?       @db.VarChar(20)
+  representante String?       @db.VarChar(150)
+  telefono      String?       @db.VarChar(30)
+  email         String?       @db.VarChar(150)
+  direccion     String?       @db.VarChar(255)
+  logoUrl       String?       @map("logo_url") @db.VarChar(255)
+  estado        EstadoGeneral @default(activo)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  equipos       Equipo[]
+
+  @@map("clubes")
+}
+
+// ============================================
+// EQUIPOS
+// ============================================
+
+model Equipo {
+  id              String        @id @default(uuid()) @db.Uuid
+  clubId          String        @map("club_id") @db.Uuid
+  categoriaId     String        @map("categoria_id") @db.Uuid
+  nombre          String        @db.VarChar(150)
+  delegadoNombre  String?       @map("delegado_nombre") @db.VarChar(150)
+  delegadoTelefono String?      @map("delegado_telefono") @db.VarChar(30)
+  delegadoEmail   String?       @map("delegado_email") @db.VarChar(150)
+  estado          EstadoGeneral @default(activo)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  club            Club          @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  categoria       Categoria     @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  inscripciones   Inscripcion[]
+  jugadores       EquipoJugador[]
+  grupoEquipos    GrupoEquipo[]
+  localEn         Partido[]     @relation("PartidoLocal")
+  visitanteEn     Partido[]     @relation("PartidoVisitante")
+  estadisticas    EstadisticaEquipo[]
+
+  @@unique([clubId, categoriaId, nombre])
+  @@index([clubId])
+  @@index([categoriaId])
+  @@map("equipos")
+}
+
+// ============================================
+// TORNEOS (mínimo para Sprint 1; se ampliará)
+// ============================================
+
+model Torneo {
+  id                    String        @id @default(uuid()) @db.Uuid
+  temporadaId           String        @map("temporada_id") @db.Uuid
+  categoriaId           String        @map("categoria_id") @db.Uuid
+  nombre                String        @db.VarChar(150)
+  formato               String        @db.VarChar(50) @default("todos_contra_todos")
+  puntosVictoria        Int           @default(3) @map("puntos_victoria")
+  puntosEmpate          Int           @default(1) @map("puntos_empate")
+  puntosDerrota         Int           @default(0) @map("puntos_derrota")
+  criterioDesempate     String        @default("diferencia_goles") @map("criterio_desempate")
+  permiteReprogramacion Boolean       @default(true) @map("permite_reprogramacion")
+  estado                String        @default("borrador") @db.VarChar(20)
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  temporada             Temporada     @relation(fields: [temporadaId], references: [id], onDelete: Cascade)
+  categoria             Categoria     @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  inscripciones         Inscripcion[]
+  fases                 FaseTorneo[]
+  partidos              Partido[]
+
+  @@index([temporadaId])
+  @@index([categoriaId])
+  @@map("torneos")
+}
+
+// ============================================
+// INSCRIPCIONES
+// ============================================
+
+model Inscripcion {
+  id                String            @id @default(uuid()) @db.Uuid
+  torneoId          String            @map("torneo_id") @db.Uuid
+  equipoId          String            @map("equipo_id") @db.Uuid
+  fechaInscripcion  DateTime          @default(now()) @map("fecha_inscripcion") @db.Date
+  costoInscripcion  Decimal           @map("costo_inscripcion") @db.Decimal(12, 2)
+  fechaLimitePago   DateTime?         @map("fecha_limite_pago") @db.Date
+  montoPagado       Decimal           @default(0) @map("monto_pagado") @db.Decimal(12, 2)
+  saldoPendiente    Decimal           @map("saldo_pendiente") @db.Decimal(12, 2)
+  estado            EstadoInscripcion @default(pendiente_pago)
+  observaciones     String?           @db.Text
+  creadoPorId       String?           @map("creado_por_id") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  torneo            Torneo            @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  equipo            Equipo            @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  creadoPor         Usuario?          @relation("InscripcionCreador", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  pagos             Pago[]
+
+  @@unique([torneoId, equipoId])
+  @@index([torneoId])
+  @@index([equipoId])
+  @@index([estado])
+  @@map("inscripciones")
+}
+
+// ============================================
+// PAGOS
+// ============================================
+
+model Pago {
+  id                     String     @id @default(uuid()) @db.Uuid
+  inscripcionId          String     @map("inscripcion_id") @db.Uuid
+  fechaPago              DateTime   @default(now()) @map("fecha_pago")
+  monto                  Decimal    @db.Decimal(12, 2)
+  metodoPago             MetodoPago @map("metodo_pago")
+  numeroRecibo           String?    @map("numero_recibo") @db.VarChar(50)
+  referenciaTransferencia String?   @map("referencia_transferencia") @db.VarChar(80)
+  observaciones          String?    @db.Text
+  comprobanteUrl         String?    @map("comprobante_url") @db.VarChar(255)
+  registradoPorId        String?    @map("registrado_por_id") @db.Uuid
+  createdAt              DateTime   @default(now()) @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+
+  inscripcion            Inscripcion @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
+  registradoPor          Usuario?    @relation("PagoRegistrador", fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  @@index([inscripcionId])
+  @@index([fechaPago])
+  @@map("pagos")
+}
+
+// ============================================
+// JUGADORES (Sprint 2)
+// ============================================
+
+model Jugador {
+  id                String            @id @default(uuid()) @db.Uuid
+  nombres           String            @db.VarChar(150)
+  apellidos         String            @db.VarChar(150)
+  fechaNacimiento   DateTime          @map("fecha_nacimiento") @db.Date
+  anioNacimiento    Int?              @map("anio_nacimiento")
+  tipoDocumento     String?           @map("tipo_documento") @db.VarChar(30)
+  numeroDocumento   String?           @map("numero_documento") @db.VarChar(50)
+  fotoUrl           String?           @map("foto_url") @db.VarChar(255)
+  estadoValidacion  EstadoValidacion  @default(pendiente) @map("estado_validacion")
+  observaciones     String?           @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  documentos        JugadorDocumento[]
+  equipos           EquipoJugador[]
+
+  @@index([numeroDocumento])
+  @@index([estadoValidacion])
+  @@index([apellidos, nombres])
+  @@map("jugadores")
+}
+
+model JugadorDocumento {
+  id              String          @id @default(uuid()) @db.Uuid
+  jugadorId       String          @map("jugador_id") @db.Uuid
+  tipoDocumento   String          @map("tipo_documento") @db.VarChar(50)
+  archivoUrl      String          @map("archivo_url") @db.VarChar(255)
+  nombreArchivo   String?         @map("nombre_archivo") @db.VarChar(255)
+  tipoArchivo     String?         @map("tipo_archivo") @db.VarChar(80)
+  tamanoBytes     Int?            @map("tamano_bytes")
+  observaciones   String?         @db.Text
+  estado          EstadoDocumento @default(pendiente)
+  validadoPorId   String?         @map("validado_por_id") @db.Uuid
+  validadoEn      DateTime?       @map("validado_en")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  jugador         Jugador         @relation(fields: [jugadorId], references: [id], onDelete: Cascade)
+  validadoPor     Usuario?        @relation("DocumentoValidador", fields: [validadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([jugadorId])
+  @@index([estado])
+  @@map("jugadores_documentos")
+}
+
+model EquipoJugador {
+  id                    String              @id @default(uuid()) @db.Uuid
+  equipoId              String              @map("equipo_id") @db.Uuid
+  jugadorId             String              @map("jugador_id") @db.Uuid
+  dorsal                Int?
+  posicion              String?             @db.VarChar(50)
+  fechaIncorporacion    DateTime            @default(now()) @map("fecha_incorporacion") @db.Date
+  estadoHabilitacion    EstadoHabilitacion  @default(pendiente) @map("estado_habilitacion")
+  motivoObservacion     String?             @map("motivo_observacion") @db.Text
+  validadoPorId         String?             @map("validado_por_id") @db.Uuid
+  validadoEn            DateTime?           @map("validado_en")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  equipo                Equipo              @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  jugador               Jugador             @relation(fields: [jugadorId], references: [id], onDelete: Cascade)
+  validadoPor           Usuario?            @relation("HabilitacionValidador", fields: [validadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([equipoId, jugadorId])
+  @@index([equipoId])
+  @@index([jugadorId])
+  @@index([estadoHabilitacion])
+  @@map("equipo_jugadores")
+}
+
+// ============================================
+// FASES, GRUPOS, FIXTURE Y PARTIDOS (Sprint 3)
+// ============================================
+
+model FaseTorneo {
+  id          String     @id @default(uuid()) @db.Uuid
+  torneoId    String     @map("torneo_id") @db.Uuid
+  nombre      String     @db.VarChar(100)
+  tipo        TipoFase   @default(liga)
+  orden       Int        @default(1)
+  estado      EstadoFase @default(pendiente)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  torneo      Torneo     @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  grupos      Grupo[]
+  partidos    Partido[]
+
+  @@index([torneoId])
+  @@map("fases_torneo")
+}
+
+model Grupo {
+  id        String   @id @default(uuid()) @db.Uuid
+  faseId    String   @map("fase_id") @db.Uuid
+  nombre    String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  fase      FaseTorneo       @relation(fields: [faseId], references: [id], onDelete: Cascade)
+  equipos   GrupoEquipo[]
+  partidos  Partido[]
+
+  @@unique([faseId, nombre])
+  @@index([faseId])
+  @@map("grupos")
+}
+
+model GrupoEquipo {
+  id        String   @id @default(uuid()) @db.Uuid
+  grupoId   String   @map("grupo_id") @db.Uuid
+  equipoId  String   @map("equipo_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  grupo     Grupo    @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  equipo    Equipo   @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+
+  @@unique([grupoId, equipoId])
+  @@index([equipoId])
+  @@map("grupo_equipos")
+}
+
+model Partido {
+  id                String        @id @default(uuid()) @db.Uuid
+  torneoId          String        @map("torneo_id") @db.Uuid
+  faseId            String?       @map("fase_id") @db.Uuid
+  grupoId           String?       @map("grupo_id") @db.Uuid
+  jornada           Int?
+  etapaEliminatoria String?       @map("etapa_eliminatoria") @db.VarChar(50) // octavos, cuartos, semi, final, etc.
+  llaveId           String?       @map("llave_id") @db.Uuid // referencia al partido del que sale el ganador
+  esIda             Boolean       @default(true) @map("es_ida")
+  equipoLocalId     String        @map("equipo_local_id") @db.Uuid
+  equipoVisitanteId String        @map("equipo_visitante_id") @db.Uuid
+  fechaProgramada   DateTime?     @map("fecha_programada") @db.Date
+  horaProgramada    String?       @map("hora_programada") @db.VarChar(8)
+  cancha            String?       @db.VarChar(120)
+  arbitroId         String?       @map("arbitro_id") @db.Uuid
+  estado            EstadoPartido @default(borrador)
+  observaciones     String?       @db.Text
+  creadoPorId       String?       @map("creado_por_id") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  torneo            Torneo            @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  fase              FaseTorneo?       @relation(fields: [faseId], references: [id], onDelete: SetNull)
+  grupo             Grupo?            @relation(fields: [grupoId], references: [id], onDelete: SetNull)
+  equipoLocal       Equipo            @relation("PartidoLocal", fields: [equipoLocalId], references: [id], onDelete: Restrict)
+  equipoVisitante   Equipo            @relation("PartidoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: Restrict)
+  resultado         Resultado?
+  reprogramaciones  PartidoReprogramacion[]
+
+  @@index([torneoId])
+  @@index([faseId])
+  @@index([grupoId])
+  @@index([equipoLocalId])
+  @@index([equipoVisitanteId])
+  @@index([fechaProgramada])
+  @@index([estado])
+  @@map("partidos")
+}
+
+model PartidoReprogramacion {
+  id              String   @id @default(uuid()) @db.Uuid
+  partidoId       String   @map("partido_id") @db.Uuid
+  fechaAnterior   DateTime? @map("fecha_anterior") @db.Date
+  horaAnterior    String?  @map("hora_anterior") @db.VarChar(8)
+  canchaAnterior  String?  @map("cancha_anterior") @db.VarChar(120)
+  fechaNueva      DateTime? @map("fecha_nueva") @db.Date
+  horaNueva       String?  @map("hora_nueva") @db.VarChar(8)
+  canchaNueva     String?  @map("cancha_nueva") @db.VarChar(120)
+  motivo          String?  @db.Text
+  reprogramadoPorId String? @map("reprogramado_por_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  partido         Partido  @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+
+  @@index([partidoId])
+  @@map("partidos_reprogramaciones")
+}
+
+// ============================================
+// RESULTADOS, EVENTOS, ESTADÍSTICAS Y SANCIONES (Sprint 4)
+// ============================================
+
+model Resultado {
+  id              String   @id @default(uuid()) @db.Uuid
+  partidoId       String   @unique @map("partido_id") @db.Uuid
+  golesLocal      Int      @default(0) @map("goles_local")
+  golesVisitante  Int      @default(0) @map("goles_visitante")
+  observaciones   String?  @db.Text
+  cerrado         Boolean  @default(false)
+  cerradoPorId    String?  @map("cerrado_por_id") @db.Uuid
+  cerradoEn       DateTime? @map("cerrado_en")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  partido         Partido  @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  cerradoPor      Usuario? @relation("ResultadoCerrador", fields: [cerradoPorId], references: [id], onDelete: SetNull)
+  eventos         ResultadoEvento[]
+
+  @@index([partidoId])
+  @@map("resultados")
+}
+
+model ResultadoEvento {
+  id            String            @id @default(uuid()) @db.Uuid
+  resultadoId   String            @map("resultado_id") @db.Uuid
+  tipo          TipoEventoPartido
+  jugadorId     String            @map("jugador_id") @db.Uuid
+  equipoId      String            @map("equipo_id") @db.Uuid
+  minuto        Int?
+  observaciones String?           @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  resultado     Resultado         @relation(fields: [resultadoId], references: [id], onDelete: Cascade)
+
+  @@index([resultadoId])
+  @@index([jugadorId])
+  @@index([equipoId])
+  @@map("resultado_eventos")
+}
+
+model Sancion {
+  id                String         @id @default(uuid()) @db.Uuid
+  jugadorId         String         @map("jugador_id") @db.Uuid
+  torneoId          String?        @map("torneo_id") @db.Uuid
+  partidoId         String?        @map("partido_id") @db.Uuid
+  motivo            MotivoSancion
+  fechasCumplir     Int            @default(1) @map("fechas_cumplir")
+  fechasCumplidas   Int            @default(0) @map("fechas_cumplidas")
+  descripcion       String?        @db.Text
+  estado            EstadoSancion  @default(pendiente)
+  aplicadaPorId     String?        @map("aplicada_por_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  aplicadaPor       Usuario?       @relation("SancionAplicador", fields: [aplicadaPorId], references: [id], onDelete: SetNull)
+
+  @@index([jugadorId])
+  @@index([torneoId])
+  @@index([estado])
+  @@map("sanciones")
+}
+
+model EstadisticaJugador {
+  id              String   @id @default(uuid()) @db.Uuid
+  torneoId        String   @map("torneo_id") @db.Uuid
+  jugadorId       String   @map("jugador_id") @db.Uuid
+  equipoId        String   @map("equipo_id") @db.Uuid
+  partidosJugados Int      @default(0) @map("partidos_jugados")
+  goles           Int      @default(0)
+  asistencias     Int      @default(0)
+  amarillas       Int      @default(0)
+  rojas           Int      @default(0)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([torneoId, jugadorId])
+  @@index([torneoId])
+  @@index([jugadorId])
+  @@map("estadisticas_jugador")
+}
+
+model EstadisticaEquipo {
+  id              String   @id @default(uuid()) @db.Uuid
+  torneoId        String   @map("torneo_id") @db.Uuid
+  equipoId        String   @map("equipo_id") @db.Uuid
+  partidosJugados Int      @default(0) @map("partidos_jugados")
+  victorias       Int      @default(0)
+  empates         Int      @default(0)
+  derrotas        Int      @default(0)
+  golesFavor      Int      @default(0) @map("goles_favor")
+  golesContra     Int      @default(0) @map("goles_contra")
+  puntos          Int      @default(0)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  equipo          Equipo   @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+
+  @@unique([torneoId, equipoId])
+  @@index([torneoId])
+  @@map("estadisticas_equipo")
+}

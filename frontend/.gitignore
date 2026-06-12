@@ -1,0 +1,24 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Entornos
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
