@@ -38,3 +38,11 @@ export class UpdateResultadoDto {
 export class CerrarResultadoDto {
   @IsOptional() @IsString() @MaxLength(2000) observaciones?: string;
 }
+
+export class UpdateSancionDto {
+  @IsOptional() @IsIn(['pendiente', 'cumplida', 'condonada', 'anulada'])
+  estado?: 'pendiente' | 'cumplida' | 'condonada' | 'anulada';
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0)
+  fechasCumplidas?: number;
+}

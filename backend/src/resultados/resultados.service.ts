@@ -266,6 +266,8 @@ export class ResultadosService {
   }
 
   async updateSancion(id: string, data: { estado?: string; fechasCumplidas?: number }) {
+    const sancion = await this.prisma.sancion.findUnique({ where: { id } });
+    if (!sancion) throw new NotFoundException(`Sanción ${id} no encontrada`);
     return this.prisma.sancion.update({ where: { id }, data: data as any });
   }
 

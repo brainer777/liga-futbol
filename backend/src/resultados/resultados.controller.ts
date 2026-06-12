@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ResultadosService } from './resultados.service';
-import { RegistrarResultadoDto, UpdateResultadoDto, CerrarResultadoDto } from './dto/resultados.dto';
+import { RegistrarResultadoDto, UpdateResultadoDto, CerrarResultadoDto, UpdateSancionDto } from './dto/resultados.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -82,8 +82,8 @@ export class ResultadosController {
   @Roles('Superadministrador', 'Administrador de liga', 'Coordinador')
   updateSancion(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: { estado?: string; fechasCumplidas?: number },
+    @Body() dto: UpdateSancionDto,
   ) {
-    return this.service.updateSancion(id, body);
+    return this.service.updateSancion(id, dto);
   }
 }
