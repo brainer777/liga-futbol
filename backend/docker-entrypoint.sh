@@ -25,4 +25,14 @@ if [ "${SEED_ON_EMPTY:-true}" = "true" ]; then
 fi
 
 echo "▶ Iniciando backend..."
-exec node dist/main
+# nest build puede dejar el entry en dist/main.js o, si compila también
+# prisma/scripts, en dist/src/main.js (cambia el rootDir inferido). Soportamos
+# ambos layouts para no depender de esa inferencia.
+if [ -f dist/main.js ]; then
+  exec node dist/main
+elif [ -f dist/src/main.js ]; then
+  exec node dist/src/main
+else
+  echo "✗ No encuentro el entry compilado (dist/main.js ni dist/src/main.js)" >&2
+  exit 1
+fi
