@@ -66,14 +66,26 @@ export default function JugadoresPage() {
   const [editing, setEditing] = React.useState<Jugador | null>(null);
   const [detail, setDetail] = React.useState<Jugador | null>(null);
   const [search, setSearch] = React.useState('');
+  const [filtroClub, setFiltroClub] = React.useState('');
+  const [filtroCategoria, setFiltroCategoria] = React.useState('');
 
   const { data: items = [], isLoading } = useQuery<Jugador[]>({
-    queryKey: ['jugadores'],
-    queryFn: () => api.get('/jugadores').then((r) => r.data),
+    queryKey: ['jugadores', filtroClub, filtroCategoria],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (filtroClub) params.set('clubId', filtroClub);
+      if (filtroCategoria) params.set('categoriaId', filtroCategoria);
+      const qs = params.toString();
+      return api.get(`/jugadores${qs ? `?${qs}` : ''}`).then((r) => r.data);
+    },
   });
   const { data: categorias = [] } = useQuery<any[]>({
     queryKey: ['categorias'],
     queryFn: () => api.get('/categorias').then((r) => r.data),
+  });
+  const { data: clubes = [] } = useQuery<any[]>({
+    queryKey: ['clubes'],
+    queryFn: () => api.get('/clubes').then((r) => r.data),
   });
   const { data: equipos = [] } = useQuery<any[]>({
     queryKey: ['equipos'],
@@ -265,7 +277,34 @@ export default function JugadoresPage() {
         </Button>
       </div>
 
-      <InputSearch value={search} onChange={setSearch} />
+      <div className="flex flex-wrap items-end gap-2">
+        <InputSearch value={search} onChange={setSearch} />
+        <select
+          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={filtroClub}
+          onChange={(e) => setFiltroClub(e.target.value)}
+        >
+          <option value="">Todos los clubes</option>
+          {clubes.map((c) => (
+            <option key={c.id} value={c.id}>{c.nombre}</option>
+          ))}
+        </select>
+        <select
+          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={filtroCategoria}
+          onChange={(e) => setFiltroCategoria(e.target.value)}
+        >
+          <option value="">Todas las categorías</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>{c.nombre}</option>
+          ))}
+        </select>
+        {(filtroClub || filtroCategoria) && (
+          <Button variant="ghost" size="sm" onClick={() => { setFiltroClub(''); setFiltroCategoria(''); }}>
+            Limpiar
+          </Button>
+        )}
+      </div>
 
       <DataTable columns={columns} data={filtered} isLoading={isLoading} searchPlaceholder="(Filtro en vivo arriba)" />
 
@@ -483,36 +522,73 @@ function UploadDocForm({ onUpload, loading }: { onUpload: (file: File, tipo: str
 }
 
 function AddToEquipoForm({ equipos, onAdd, loading }: { equipos: any[]; onAdd: (data: any) => void; loading: boolean }) {
+  const [clubId, setClubId] = React.useState('');
+  const [categoriaId, setCategoriaId] = React.useState('');
   const [equipoId, setEquipoId] = React.useState('');
   const [dorsal, setDorsal] = React.useState('');
   const [posicion, setPosicion] = React.useState('');
+
+  // Cascada derivada de los equipos disponibles (ya excluye donde el jugador juega).
+  const clubes = React.useMemo(() => {
+    const map = new Map<string, string>();
+    equipos.forEach((e) => map.set(e.club.id, e.club.nombre));
+    return Array.from(map, ([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [equipos]);
+
+  const categorias = React.useMemo(() => {
+    const map = new Map<string, string>();
+    equipos
+      .filter((e) => !clubId || e.club.id === clubId)
+      .forEach((e) => map.set(e.categoria.id, e.categoria.nombre));
+    return Array.from(map, ([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [equipos, clubId]);
+
+  const equiposFiltrados = React.useMemo(
+    () =>
+      equipos.filter(
+        (e) => (!clubId || e.club.id === clubId) && (!categoriaId || e.categoria.id === categoriaId),
+      ),
+    [equipos, clubId, categoriaId],
+  );
+
+  const selectCls = 'flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm';
+
   return (
-    <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
-      <select className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        value={equipoId} onChange={(e) => setEquipoId(e.target.value)}>
-        <option value="">Seleccione equipo…</option>
-        {equipos.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.nombre} ({e.categoria.nombre}) — {e.club.nombre}
-          </option>
-        ))}
-      </select>
-      <input type="number" placeholder="Dorsal" min={1} max={99}
-        className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        value={dorsal} onChange={(e) => setDorsal(e.target.value)} />
-      <input type="text" placeholder="Posición"
-        className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        value={posicion} onChange={(e) => setPosicion(e.target.value)} />
-      <Button
-        onClick={() => {
-          if (!equipoId) return alert('Elegí un equipo');
-          onAdd({ equipoId, dorsal: dorsal ? Number(dorsal) : undefined, posicion: posicion || undefined });
-          setEquipoId(''); setDorsal(''); setPosicion('');
-        }}
-        disabled={loading || !equipoId}
-      >
-        {loading ? 'Agregando…' : 'Agregar a equipo'}
-      </Button>
+    <div className="mt-3 space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <select className={selectCls} value={clubId}
+          onChange={(e) => { setClubId(e.target.value); setCategoriaId(''); setEquipoId(''); }}>
+          <option value="">1) Club…</option>
+          {clubes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+        <select className={selectCls} value={categoriaId}
+          onChange={(e) => { setCategoriaId(e.target.value); setEquipoId(''); }}>
+          <option value="">2) Categoría…</option>
+          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+        <select className={selectCls} value={equipoId} onChange={(e) => setEquipoId(e.target.value)}>
+          <option value="">3) Equipo…</option>
+          {equiposFiltrados.map((e) => (
+            <option key={e.id} value={e.id}>{e.nombre} ({e.categoria.nombre}) — {e.club.nombre}</option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <input type="number" placeholder="Dorsal" min={1} max={99} className={selectCls}
+          value={dorsal} onChange={(e) => setDorsal(e.target.value)} />
+        <input type="text" placeholder="Posición" className={selectCls}
+          value={posicion} onChange={(e) => setPosicion(e.target.value)} />
+        <Button
+          onClick={() => {
+            if (!equipoId) return alert('Elegí un equipo');
+            onAdd({ equipoId, dorsal: dorsal ? Number(dorsal) : undefined, posicion: posicion || undefined });
+            setClubId(''); setCategoriaId(''); setEquipoId(''); setDorsal(''); setPosicion('');
+          }}
+          disabled={loading || !equipoId}
+        >
+          {loading ? 'Agregando…' : 'Agregar a equipo'}
+        </Button>
+      </div>
     </div>
   );
 }
