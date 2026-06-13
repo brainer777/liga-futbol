@@ -11,12 +11,10 @@ export class CreateJugadorDto {
   @IsOptional() @IsString() @MaxLength(255) fotoUrl?: string;
   @IsOptional() @IsString() @MaxLength(1000) observaciones?: string;
 
-  // Opcional: categoría a usar para validar la edad al crear
-  @IsOptional() @IsString() categoriaId?: string;
-
-  // Opcional: equipo al que se asigna el jugador al crearlo. Si viene, la
-  // categoría para validar la edad sale del equipo y se crea el vínculo
-  // (EquipoJugador) en la misma transacción.
+  // Equipo al que se asigna el jugador al crearlo (obligatorio): la categoría
+  // para validar la edad sale del equipo y el vínculo (EquipoJugador) se crea
+  // en la misma transacción. La obligatoriedad se valida en el service para dar
+  // un mensaje claro en español.
   @IsOptional() @IsString() equipoId?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(99) dorsal?: number;
   @IsOptional() @IsString() @MaxLength(50) posicion?: string;

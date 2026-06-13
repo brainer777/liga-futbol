@@ -60,44 +60,39 @@ export class JugadoresService {
   }
 
   async create(dto: CreateJugadorDto, _userId?: string) {
+    // El jugador debe nacer ligado a un equipo (club → categoría → equipo).
+    if (!dto.equipoId) {
+      throw new BadRequestException(
+        'Debe asignar el jugador a un equipo (elegí club, categoría y equipo).',
+      );
+    }
+
     const fechaNacimiento = new Date(dto.fechaNacimiento);
-    let estadoValidacion: any = 'pendiente';
-    let alertas: string[] = [];
-    let nivel = 'ok';
 
-    // Si se asigna a un equipo, la categoría para validar la edad sale del
-    // equipo (es la fuente de verdad). Si no, se usa la categoría suelta.
-    let equipo: any = null;
-    let categoriaId = dto.categoriaId;
-    if (dto.equipoId) {
-      equipo = await this.prisma.equipo.findUnique({
-        where: { id: dto.equipoId },
-        include: { categoria: true },
-      });
-      if (!equipo) throw new BadRequestException('Equipo inexistente para la asignación');
-      categoriaId = equipo.categoriaId;
-    }
+    // La categoría para validar la edad sale del equipo (es la fuente de verdad).
+    const equipo = await this.prisma.equipo.findUnique({
+      where: { id: dto.equipoId },
+      include: { categoria: true },
+    });
+    if (!equipo) throw new BadRequestException('Equipo inexistente para la asignación');
 
-    if (categoriaId) {
-      const cat = equipo?.categoria ?? (await this.prisma.categoria.findUnique({ where: { id: categoriaId } }));
-      if (!cat) throw new BadRequestException('Categoría inexistente para validación');
-      const reglas: CategoriaReglas = {
-        nombre: cat.nombre,
-        edadMinima: cat.edadMinima,
-        edadMaxima: cat.edadMaxima,
-        permiteSinCedula: cat.permiteSinCedula,
-        validaPorAnioNacimiento: cat.validaPorAnioNacimiento,
-      };
-      const result = validarJugador(reglas, {
-        fechaNacimiento,
-        anioNacimiento: dto.anioNacimiento,
-        tipoDocumento: dto.tipoDocumento,
-        numeroDocumento: dto.numeroDocumento,
-      });
-      alertas = result.alertas;
-      nivel = result.nivel;
-      estadoValidacion = nivel === 'ok' ? 'habilitado' : nivel === 'rechazado' ? 'rechazado' : 'observado';
-    }
+    const cat = equipo.categoria;
+    const reglas: CategoriaReglas = {
+      nombre: cat.nombre,
+      edadMinima: cat.edadMinima,
+      edadMaxima: cat.edadMaxima,
+      permiteSinCedula: cat.permiteSinCedula,
+      validaPorAnioNacimiento: cat.validaPorAnioNacimiento,
+    };
+    const result = validarJugador(reglas, {
+      fechaNacimiento,
+      anioNacimiento: dto.anioNacimiento,
+      tipoDocumento: dto.tipoDocumento,
+      numeroDocumento: dto.numeroDocumento,
+    });
+    const nivel = result.nivel;
+    const estadoValidacion =
+      nivel === 'ok' ? 'habilitado' : nivel === 'rechazado' ? 'rechazado' : 'observado';
 
     // Alta + asignación al equipo en una sola transacción: si falla el vínculo,
     // no queda un jugador huérfano.
@@ -115,18 +110,16 @@ export class JugadoresService {
           estadoValidacion,
         },
       });
-      if (dto.equipoId) {
-        await tx.equipoJugador.create({
-          data: {
-            equipoId: dto.equipoId,
-            jugadorId: jugador.id,
-            dorsal: dto.dorsal,
-            posicion: dto.posicion,
-            estadoHabilitacion: nivel === 'ok' ? 'habilitado' : 'observado',
-            motivoObservacion: alertas.length ? alertas.join(' • ') : null,
-          },
-        });
-      }
+      await tx.equipoJugador.create({
+        data: {
+          equipoId: dto.equipoId,
+          jugadorId: jugador.id,
+          dorsal: dto.dorsal,
+          posicion: dto.posicion,
+          estadoHabilitacion: nivel === 'ok' ? 'habilitado' : 'observado',
+          motivoObservacion: result.alertas.length ? result.alertas.join(' • ') : null,
+        },
+      });
       return jugador;
     });
   }
