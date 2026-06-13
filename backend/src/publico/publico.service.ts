@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ResultadosService } from '../resultados/resultados.service';
 import { ConfiguracionService } from '../configuracion/configuracion.service';
+import { EstadisticasService, EstadisticasFiltros } from '../estadisticas/estadisticas.service';
 
 /**
  * Servicio del portal público (sin autenticación).
@@ -25,11 +26,28 @@ export class PublicoService {
     private readonly prisma: PrismaService,
     private readonly resultados: ResultadosService,
     private readonly configuracion: ConfiguracionService,
+    private readonly estadisticas: EstadisticasService,
   ) {}
 
   /** Branding público (nombre, logo, favicon, color) para login y portal. */
   configuracionPublica() {
     return this.configuracion.getPublic();
+  }
+
+  // Estadísticas globales para el portal. EstadisticasService ya proyecta a
+  // campos seguros (nombre/apellidos + equipo/club + números), así que se
+  // exponen directamente.
+  estadisticasResumen(f: EstadisticasFiltros) {
+    return this.estadisticas.resumen(f);
+  }
+  estadisticasGoleadores(f: EstadisticasFiltros) {
+    return this.estadisticas.goleadores(f);
+  }
+  estadisticasTarjetas(f: EstadisticasFiltros) {
+    return this.estadisticas.tarjetas(f);
+  }
+  estadisticasEquipos(f: EstadisticasFiltros) {
+    return this.estadisticas.equipos(f);
   }
 
   /** Solo clubes: nombre + sigla + logo (sin contacto). */

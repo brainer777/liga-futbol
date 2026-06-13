@@ -23,6 +23,7 @@ import { PublicoModule } from './publico/publico.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ConfiguracionModule } from './configuracion/configuracion.module';
+import { EstadisticasModule } from './estadisticas/estadisticas.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -65,6 +66,7 @@ import { HealthController } from './health/health.controller';
     ReportesModule,
     AuditoriaModule,
     ConfiguracionModule,
+    EstadisticasModule,
   ],
   controllers: [HealthController],
   providers: [

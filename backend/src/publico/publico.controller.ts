@@ -1,6 +1,7 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PublicoService } from './publico.service';
+import { EstadisticasQueryDto } from '../estadisticas/dto/estadisticas.dto';
 
 /**
  * Endpoints PÚBLICOS (sin guards ni autenticación).
@@ -17,6 +18,26 @@ export class PublicoController {
   @Get('configuracion')
   configuracion() {
     return this.service.configuracionPublica();
+  }
+
+  @Get('estadisticas/resumen')
+  estadisticasResumen(@Query() q: EstadisticasQueryDto) {
+    return this.service.estadisticasResumen(q);
+  }
+
+  @Get('estadisticas/goleadores')
+  estadisticasGoleadores(@Query() q: EstadisticasQueryDto) {
+    return this.service.estadisticasGoleadores(q);
+  }
+
+  @Get('estadisticas/tarjetas')
+  estadisticasTarjetas(@Query() q: EstadisticasQueryDto) {
+    return this.service.estadisticasTarjetas(q);
+  }
+
+  @Get('estadisticas/equipos')
+  estadisticasEquipos(@Query() q: EstadisticasQueryDto) {
+    return this.service.estadisticasEquipos(q);
   }
 
   @Get('torneos')
