@@ -5,19 +5,38 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { fileUrl } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/data-table';
 import { FormModal, FieldDef } from '@/components/form-modal';
+import { Shield } from 'lucide-react';
 
 type Club = {
   id: string; nombre: string; sigla?: string; representante?: string;
-  telefono?: string; email?: string; direccion?: string; estado: 'activo' | 'inactivo';
+  telefono?: string; email?: string; direccion?: string; logoUrl?: string | null;
+  estado: 'activo' | 'inactivo';
   _count?: { equipos: number };
 };
 
+/** Logo del club (o placeholder). */
+function ClubLogo({ url, className = 'h-8 w-8' }: { url?: string | null; className?: string }) {
+  const src = fileUrl(url);
+  return (
+    <div className={`${className} shrink-0 rounded-md border bg-muted/40 flex items-center justify-center overflow-hidden`}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-contain" />
+      ) : (
+        <Shield className="h-4 w-4 text-muted-foreground" />
+      )}
+    </div>
+  );
+}
+
 const fields: FieldDef[] = [
   { name: 'nombre', label: 'Nombre', required: true },
+  { name: 'logoUrl', label: 'Logo del club', type: 'logo', hint: 'Imagen cuadrada (PNG/JPG/WebP), máx. 20 MB.' },
   { name: 'sigla', label: 'Sigla' },
   { name: 'representante', label: 'Representante' },
   { name: 'telefono', label: 'Teléfono' },
@@ -52,7 +71,15 @@ export default function ClubesPage() {
   });
 
   const columns: ColumnDef<Club, any>[] = [
-    { accessorKey: 'nombre', header: 'Nombre' },
+    {
+      id: 'nombre', header: 'Nombre',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <ClubLogo url={row.original.logoUrl} />
+          <span className="font-medium">{row.original.nombre}</span>
+        </div>
+      ),
+    },
     { accessorKey: 'sigla', header: 'Sigla' },
     { accessorKey: 'representante', header: 'Representante' },
     { accessorKey: 'telefono', header: 'Teléfono' },

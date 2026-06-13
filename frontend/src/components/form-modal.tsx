@@ -5,18 +5,84 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { X } from 'lucide-react';
+import { X, Upload, ImageIcon } from 'lucide-react';
+import { api, getApiErrorMessage } from '@/lib/api';
+import { fileUrl } from '@/lib/branding';
 
 export interface FieldDef {
   name: string;
   label: string;
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'checkbox' | 'textarea' | 'select' | 'multiselect';
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'checkbox' | 'textarea' | 'select' | 'multiselect' | 'logo';
   required?: boolean;
   placeholder?: string;
   options?: { value: string; label: string }[];
   defaultValue?: any;
   /** Texto de ayuda mostrado bajo el campo */
   hint?: string;
+}
+
+/**
+ * Campo de subida de logo/escudo. Sube el archivo a /uploads?subfolder=logos
+ * y guarda la URL pública relativa en el valor del campo.
+ */
+function LogoField({ value, onChange }: { value?: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await api.post('/uploads?subfolder=logos', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      onChange(res.data.url);
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const preview = fileUrl(value);
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-16 w-16 shrink-0 rounded-md border bg-muted/40 flex items-center justify-center overflow-hidden">
+        {preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="logo" className="h-full w-full object-contain" />
+        ) : (
+          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+        )}
+      </div>
+      <div className="flex flex-col gap-1">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+        />
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={uploading}
+            onClick={() => inputRef.current?.click()}>
+            <Upload className="h-4 w-4" /> {uploading ? 'Subiendo…' : preview ? 'Cambiar' : 'Subir logo'}
+          </Button>
+          {preview && (
+            <Button type="button" variant="ghost" size="sm" disabled={uploading}
+              onClick={() => onChange('')}>
+              Quitar
+            </Button>
+          )}
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+    </div>
+  );
 }
 
 function emptyValue(type?: FieldDef['type']) {
@@ -150,6 +216,11 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
                       <span className="text-sm text-muted-foreground">Sin opciones disponibles.</span>
                     )}
                   </div>
+                ) : f.type === 'logo' ? (
+                  <LogoField
+                    value={values[f.name] ?? ''}
+                    onChange={(url) => setValues({ ...values, [f.name]: url })}
+                  />
                 ) : (
                   <Input
                     id={f.name}
