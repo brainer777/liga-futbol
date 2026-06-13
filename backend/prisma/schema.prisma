@@ -258,6 +258,7 @@ model Equipo {
   clubId          String        @map("club_id") @db.Uuid
   categoriaId     String        @map("categoria_id") @db.Uuid
   nombre          String        @db.VarChar(150)
+  logoUrl         String?       @map("logo_url") @db.VarChar(255)
   delegadoNombre  String?       @map("delegado_nombre") @db.VarChar(150)
   delegadoTelefono String?      @map("delegado_telefono") @db.VarChar(30)
   delegadoEmail   String?       @map("delegado_email") @db.VarChar(150)

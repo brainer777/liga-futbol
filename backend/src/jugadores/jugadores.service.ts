@@ -14,7 +14,9 @@ export class JugadoresService {
   // JUGADORES
   // ============================
 
-  findAll(filters: { estado?: string; search?: string; equipoId?: string } = {}) {
+  findAll(
+    filters: { estado?: string; search?: string; equipoId?: string; clubId?: string; categoriaId?: string } = {},
+  ) {
     const where: any = {};
     if (filters.estado) where.estadoValidacion = filters.estado;
     if (filters.search) {
@@ -24,8 +26,15 @@ export class JugadoresService {
         { numeroDocumento: { contains: filters.search } },
       ];
     }
-    if (filters.equipoId) {
-      where.equipos = { some: { equipoId: filters.equipoId } };
+    // Filtros por vínculo a equipos: equipoId directo, o por club/categoría
+    // del equipo donde está inscrito el jugador.
+    const equipoMatch: any = {};
+    if (filters.equipoId) equipoMatch.equipoId = filters.equipoId;
+    if (filters.clubId) equipoMatch.equipo = { ...(equipoMatch.equipo || {}), clubId: filters.clubId };
+    if (filters.categoriaId)
+      equipoMatch.equipo = { ...(equipoMatch.equipo || {}), categoriaId: filters.categoriaId };
+    if (Object.keys(equipoMatch).length) {
+      where.equipos = { some: equipoMatch };
     }
     return this.prisma.jugador.findMany({
       where,
@@ -230,6 +239,23 @@ export class JugadoresService {
       where: { equipoId_jugadorId: { equipoId: dto.equipoId, jugadorId: dto.jugadorId } },
     });
     if (exists) throw new BadRequestException('El jugador ya está en este equipo.');
+
+    // Regla: un jugador no puede estar inscrito en dos equipos de la misma
+    // categoría. La categoría vive en el equipo, así que se valida vía relación.
+    const enMismaCategoria = await this.prisma.equipoJugador.findFirst({
+      where: {
+        jugadorId: dto.jugadorId,
+        equipo: { categoriaId: equipo.categoriaId },
+      },
+      include: { equipo: { include: { club: true } } },
+    });
+    if (enMismaCategoria) {
+      throw new BadRequestException(
+        `El jugador ya está inscrito en la categoría "${equipo.categoria.nombre}" con el equipo ` +
+          `"${enMismaCategoria.equipo.nombre}" (${enMismaCategoria.equipo.club.nombre}). ` +
+          `No puede estar en dos equipos de la misma categoría.`,
+      );
+    }
 
     return this.prisma.equipoJugador.create({
       data: {

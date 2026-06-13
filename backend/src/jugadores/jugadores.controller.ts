@@ -21,8 +21,14 @@ export class JugadoresController {
   // ---- Jugadores ----
   @Get()
   @Roles('Superadministrador', 'Administrador de liga', 'Coordinador', 'Delegado de equipo', 'Digitador', 'Árbitro')
-  findAll(@Query('estado') estado?: string, @Query('search') search?: string, @Query('equipoId') equipoId?: string) {
-    return this.service.findAll({ estado, search, equipoId });
+  findAll(
+    @Query('estado') estado?: string,
+    @Query('search') search?: string,
+    @Query('equipoId') equipoId?: string,
+    @Query('clubId') clubId?: string,
+    @Query('categoriaId') categoriaId?: string,
+  ) {
+    return this.service.findAll({ estado, search, equipoId, clubId, categoriaId });
   }
 
   @Get(':id')
