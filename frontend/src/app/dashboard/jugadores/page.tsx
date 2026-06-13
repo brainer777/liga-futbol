@@ -7,10 +7,13 @@ import {
   Plus, Pencil, Trash2, Eye, Upload, FileText, Check, X, UserMinus,
 } from 'lucide-react';
 import { api, getApiErrorMessage } from '@/lib/api';
+import { fileUrl } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/data-table';
-import { FormModal, FieldDef } from '@/components/form-modal';
+import { LogoField } from '@/components/form-modal';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 type Documento = {
   id: string; tipoDocumento: string; archivoUrl: string; nombreArchivo?: string;
@@ -37,10 +40,28 @@ type Jugador = {
   anioNacimiento?: number | null;
   tipoDocumento?: string | null;
   numeroDocumento?: string | null;
+  fotoUrl?: string | null;
+  observaciones?: string | null;
   estadoValidacion: 'pendiente' | 'habilitado' | 'observado' | 'rechazado' | 'suspendido';
   documentos: Documento[];
   equipos: EquipoVinculado[];
 };
+
+/** Avatar de foto del jugador (o iniciales como placeholder). */
+function JugadorAvatar({ url, nombres, apellidos, className = 'h-9 w-9' }: { url?: string | null; nombres: string; apellidos: string; className?: string }) {
+  const src = fileUrl(url);
+  const iniciales = `${apellidos?.[0] ?? ''}${nombres?.[0] ?? ''}`.toUpperCase();
+  return (
+    <div className={`${className} shrink-0 rounded-full border bg-muted/40 flex items-center justify-center overflow-hidden text-xs font-medium text-muted-foreground`}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span>{iniciales || '—'}</span>
+      )}
+    </div>
+  );
+}
 
 const TIPO_DOC_LABEL: Record<string, string> = {
   cedula: 'Cédula',
@@ -102,35 +123,8 @@ export default function JugadoresPage() {
     );
   }, [items, search]);
 
-  const fields: FieldDef[] = [
-    { name: 'nombres', label: 'Nombres', required: true },
-    { name: 'apellidos', label: 'Apellidos', required: true },
-    { name: 'fechaNacimiento', label: 'Fecha de nacimiento', type: 'date', required: true },
-    { name: 'anioNacimiento', label: 'Año de nacimiento (sólo si no hay cédula)', type: 'number' },
-    { name: 'tipoDocumento', label: 'Tipo de documento', type: 'select', options: [
-      { value: '', label: '— Sin documento —' },
-      { value: 'DNI', label: 'DNI' },
-      { value: 'CI', label: 'Cédula (CI)' },
-      { value: 'Pasaporte', label: 'Pasaporte' },
-      { value: 'Registro civil', label: 'Registro civil' },
-      { value: 'Otro', label: 'Otro' },
-    ] },
-    { name: 'numeroDocumento', label: 'Número de documento' },
-    { name: 'categoriaId', label: 'Categoría para validar edad al crear', type: 'select',
-      options: categorias.map((c) => ({ value: c.id, label: c.nombre })) },
-    { name: 'observaciones', label: 'Observaciones', type: 'textarea' },
-  ];
-
   const create = useMutation({
-    mutationFn: (data: any) => {
-      // si no se eligió tipo documento, lo limpiamos
-      if (!data.tipoDocumento) {
-        delete data.tipoDocumento;
-        delete data.numeroDocumento;
-      }
-      if (!data.anioNacimiento) delete data.anioNacimiento;
-      return api.post('/jugadores', data).then((r) => r.data);
-    },
+    mutationFn: (data: any) => api.post('/jugadores', data).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['jugadores'] }); setOpen(false); },
     onError: (e) => alert(getApiErrorMessage(e)),
   });
@@ -223,10 +217,13 @@ export default function JugadoresPage() {
     {
       id: 'nombre', header: 'Jugador',
       cell: ({ row }) => (
-        <div>
-          <div className="font-medium">{row.original.apellidos}, {row.original.nombres}</div>
-          <div className="text-xs text-muted-foreground">
-            {calcularEdad(row.original.fechaNacimiento)} años · {row.original.numeroDocumento || 'Sin documento'}
+        <div className="flex items-center gap-3">
+          <JugadorAvatar url={row.original.fotoUrl} nombres={row.original.nombres} apellidos={row.original.apellidos} />
+          <div>
+            <div className="font-medium">{row.original.apellidos}, {row.original.nombres}</div>
+            <div className="text-xs text-muted-foreground">
+              {calcularEdad(row.original.fechaNacimiento)} años · {row.original.numeroDocumento || 'Sin documento'}
+            </div>
           </div>
         </div>
       ),
@@ -308,31 +305,32 @@ export default function JugadoresPage() {
 
       <DataTable columns={columns} data={filtered} isLoading={isLoading} searchPlaceholder="(Filtro en vivo arriba)" />
 
-      <FormModal
-        open={open}
-        title={editing ? 'Editar jugador' : 'Nuevo jugador'}
-        fields={fields}
-        initialValues={editing ? {
-          ...editing,
-          fechaNacimiento: editing.fechaNacimiento?.slice(0, 10),
-        } : undefined}
-        onClose={() => { setOpen(false); setEditing(null); }}
-        onSubmit={(values) => editing ? update.mutateAsync({ id: editing.id, data: values }) : create.mutateAsync(values)}
-      />
+      {open && (
+        <JugadorFormModal
+          editing={editing}
+          equipos={equipos}
+          onClose={() => { setOpen(false); setEditing(null); }}
+          onCreate={(payload) => create.mutateAsync(payload)}
+          onUpdate={(id, payload) => update.mutateAsync({ id, data: payload })}
+        />
+      )}
 
       {/* ===== Modal de detalle ===== */}
       {detail && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b sticky top-0 bg-card z-10 flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold">{detail.apellidos}, {detail.nombres}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {calcularEdad(detail.fechaNacimiento)} años · {detail.tipoDocumento || 'Sin documento'} {detail.numeroDocumento || ''}
-                </p>
-                <Badge variant={estadoColor[detail.estadoValidacion] || 'secondary'} className="mt-1">
-                  {detail.estadoValidacion}
-                </Badge>
+              <div className="flex items-center gap-4">
+                <JugadorAvatar url={detail.fotoUrl} nombres={detail.nombres} apellidos={detail.apellidos} className="h-16 w-16 text-lg" />
+                <div>
+                  <h2 className="text-xl font-semibold">{detail.apellidos}, {detail.nombres}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {calcularEdad(detail.fechaNacimiento)} años · {detail.tipoDocumento || 'Sin documento'} {detail.numeroDocumento || ''}
+                  </p>
+                  <Badge variant={estadoColor[detail.estadoValidacion] || 'secondary'} className="mt-1">
+                    {detail.estadoValidacion}
+                  </Badge>
+                </div>
               </div>
               <button onClick={() => setDetail(null)} className="text-muted-foreground">✕</button>
             </div>
@@ -517,6 +515,201 @@ function UploadDocForm({ onUpload, loading }: { onUpload: (file: File, tipo: str
       >
         <Upload className="h-4 w-4" /> {loading ? 'Subiendo…' : 'Subir documento'}
       </Button>
+    </div>
+  );
+}
+
+const TIPO_DOC_OPTS = [
+  { value: '', label: '— Sin documento —' },
+  { value: 'DNI', label: 'DNI' },
+  { value: 'CI', label: 'Cédula (CI)' },
+  { value: 'Pasaporte', label: 'Pasaporte' },
+  { value: 'Registro civil', label: 'Registro civil' },
+  { value: 'Otro', label: 'Otro' },
+];
+
+/**
+ * Alta/edición de jugador. En el alta exige cascada club → categoría → equipo
+ * (la categoría para validar la edad sale del equipo) y permite cargar foto.
+ * En edición solo se tocan los datos base + foto; la membresía a equipos se
+ * gestiona desde la ficha del jugador.
+ */
+function JugadorFormModal({
+  editing,
+  equipos,
+  onClose,
+  onCreate,
+  onUpdate,
+}: {
+  editing: Jugador | null;
+  equipos: any[];
+  onClose: () => void;
+  onCreate: (payload: any) => Promise<any>;
+  onUpdate: (id: string, payload: any) => Promise<any>;
+}) {
+  const esEdicion = !!editing;
+  const [fotoUrl, setFotoUrl] = React.useState(editing?.fotoUrl ?? '');
+  const [nombres, setNombres] = React.useState(editing?.nombres ?? '');
+  const [apellidos, setApellidos] = React.useState(editing?.apellidos ?? '');
+  const [fechaNacimiento, setFechaNacimiento] = React.useState(editing?.fechaNacimiento?.slice(0, 10) ?? '');
+  const [anioNacimiento, setAnioNacimiento] = React.useState(editing?.anioNacimiento ? String(editing.anioNacimiento) : '');
+  const [tipoDocumento, setTipoDocumento] = React.useState(editing?.tipoDocumento ?? '');
+  const [numeroDocumento, setNumeroDocumento] = React.useState(editing?.numeroDocumento ?? '');
+  const [observaciones, setObservaciones] = React.useState(editing?.observaciones ?? '');
+  // Cascada (solo alta)
+  const [clubId, setClubId] = React.useState('');
+  const [categoriaId, setCategoriaId] = React.useState('');
+  const [equipoId, setEquipoId] = React.useState('');
+  const [dorsal, setDorsal] = React.useState('');
+  const [posicion, setPosicion] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const clubes = React.useMemo(() => {
+    const map = new Map<string, string>();
+    equipos.forEach((e) => map.set(e.club.id, e.club.nombre));
+    return Array.from(map, ([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [equipos]);
+  const categorias = React.useMemo(() => {
+    const map = new Map<string, string>();
+    equipos.filter((e) => !clubId || e.club.id === clubId).forEach((e) => map.set(e.categoria.id, e.categoria.nombre));
+    return Array.from(map, ([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [equipos, clubId]);
+  const equiposFiltrados = React.useMemo(
+    () => equipos.filter((e) => (!clubId || e.club.id === clubId) && (!categoriaId || e.categoria.id === categoriaId)),
+    [equipos, clubId, categoriaId],
+  );
+
+  const inputCls = 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm';
+
+  const handleSubmit = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    setError(null);
+    if (!nombres.trim() || !apellidos.trim() || !fechaNacimiento) {
+      setError('Nombres, apellidos y fecha de nacimiento son obligatorios.');
+      return;
+    }
+    if (!esEdicion && !equipoId) {
+      setError('Elegí club, categoría y equipo: el jugador debe quedar asignado a un equipo.');
+      return;
+    }
+    const base: any = {
+      nombres: nombres.trim(),
+      apellidos: apellidos.trim(),
+      fechaNacimiento,
+      fotoUrl: fotoUrl || undefined,
+      observaciones: observaciones || undefined,
+    };
+    if (anioNacimiento) base.anioNacimiento = Number(anioNacimiento);
+    if (tipoDocumento) { base.tipoDocumento = tipoDocumento; base.numeroDocumento = numeroDocumento || undefined; }
+    setSaving(true);
+    try {
+      if (esEdicion) {
+        await onUpdate(editing!.id, base);
+      } else {
+        await onCreate({
+          ...base,
+          equipoId,
+          dorsal: dorsal ? Number(dorsal) : undefined,
+          posicion: posicion || undefined,
+        });
+      }
+    } catch (e) {
+      setError(getApiErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card border rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b sticky top-0 bg-card z-10 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">{esEdicion ? 'Editar jugador' : 'Nuevo jugador'}</h2>
+          <button onClick={onClose} className="text-muted-foreground"><X className="h-5 w-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <Label>Foto del jugador</Label>
+            <LogoField value={fotoUrl} onChange={setFotoUrl} subfolder="jugadores" round label="Subir foto" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Nombres <span className="text-destructive">*</span></Label>
+              <Input value={nombres} onChange={(e) => setNombres(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Apellidos <span className="text-destructive">*</span></Label>
+              <Input value={apellidos} onChange={(e) => setApellidos(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Fecha de nacimiento <span className="text-destructive">*</span></Label>
+              <Input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Año de nacimiento (sólo si no hay cédula)</Label>
+              <Input type="number" value={anioNacimiento} onChange={(e) => setAnioNacimiento(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo de documento</Label>
+              <select className={inputCls} value={tipoDocumento} onChange={(e) => setTipoDocumento(e.target.value)}>
+                {TIPO_DOC_OPTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Número de documento</Label>
+              <Input value={numeroDocumento} onChange={(e) => setNumeroDocumento(e.target.value)} disabled={!tipoDocumento} />
+            </div>
+          </div>
+
+          {!esEdicion && (
+            <div className="space-y-1.5 rounded-md border border-dashed p-3">
+              <Label>Equipo al que pertenece <span className="text-destructive">*</span></Label>
+              <p className="text-xs text-muted-foreground">El club y la categoría salen del equipo elegido.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1">
+                <select className={inputCls} value={clubId}
+                  onChange={(e) => { setClubId(e.target.value); setCategoriaId(''); setEquipoId(''); }}>
+                  <option value="">1) Club…</option>
+                  {clubes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                <select className={inputCls} value={categoriaId} disabled={!clubId}
+                  onChange={(e) => { setCategoriaId(e.target.value); setEquipoId(''); }}>
+                  <option value="">2) Categoría…</option>
+                  {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+                <select className={inputCls} value={equipoId} disabled={!categoriaId}
+                  onChange={(e) => setEquipoId(e.target.value)}>
+                  <option value="">3) Equipo…</option>
+                  {equiposFiltrados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                <Input type="number" placeholder="Dorsal (opcional)" min={1} max={99}
+                  value={dorsal} onChange={(e) => setDorsal(e.target.value)} />
+                <Input type="text" placeholder="Posición (opcional)"
+                  value={posicion} onChange={(e) => setPosicion(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Observaciones</Label>
+            <textarea className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+          </div>
+
+          {error && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

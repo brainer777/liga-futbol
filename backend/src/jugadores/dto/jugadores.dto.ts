@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateJugadorDto {
@@ -13,6 +13,13 @@ export class CreateJugadorDto {
 
   // Opcional: categoría a usar para validar la edad al crear
   @IsOptional() @IsString() categoriaId?: string;
+
+  // Opcional: equipo al que se asigna el jugador al crearlo. Si viene, la
+  // categoría para validar la edad sale del equipo y se crea el vínculo
+  // (EquipoJugador) en la misma transacción.
+  @IsOptional() @IsString() equipoId?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(99) dorsal?: number;
+  @IsOptional() @IsString() @MaxLength(50) posicion?: string;
 }
 
 export class UpdateJugadorDto {

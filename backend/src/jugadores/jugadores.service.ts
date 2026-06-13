@@ -63,9 +63,23 @@ export class JugadoresService {
     const fechaNacimiento = new Date(dto.fechaNacimiento);
     let estadoValidacion: any = 'pendiente';
     let alertas: string[] = [];
+    let nivel = 'ok';
 
-    if (dto.categoriaId) {
-      const cat = await this.prisma.categoria.findUnique({ where: { id: dto.categoriaId } });
+    // Si se asigna a un equipo, la categoría para validar la edad sale del
+    // equipo (es la fuente de verdad). Si no, se usa la categoría suelta.
+    let equipo: any = null;
+    let categoriaId = dto.categoriaId;
+    if (dto.equipoId) {
+      equipo = await this.prisma.equipo.findUnique({
+        where: { id: dto.equipoId },
+        include: { categoria: true },
+      });
+      if (!equipo) throw new BadRequestException('Equipo inexistente para la asignación');
+      categoriaId = equipo.categoriaId;
+    }
+
+    if (categoriaId) {
+      const cat = equipo?.categoria ?? (await this.prisma.categoria.findUnique({ where: { id: categoriaId } }));
       if (!cat) throw new BadRequestException('Categoría inexistente para validación');
       const reglas: CategoriaReglas = {
         nombre: cat.nombre,
@@ -81,22 +95,39 @@ export class JugadoresService {
         numeroDocumento: dto.numeroDocumento,
       });
       alertas = result.alertas;
-      estadoValidacion =
-        result.nivel === 'ok' ? 'habilitado' : result.nivel === 'rechazado' ? 'rechazado' : 'observado';
+      nivel = result.nivel;
+      estadoValidacion = nivel === 'ok' ? 'habilitado' : nivel === 'rechazado' ? 'rechazado' : 'observado';
     }
 
-    return this.prisma.jugador.create({
-      data: {
-        nombres: dto.nombres,
-        apellidos: dto.apellidos,
-        fechaNacimiento,
-        anioNacimiento: dto.anioNacimiento,
-        tipoDocumento: dto.tipoDocumento,
-        numeroDocumento: dto.numeroDocumento,
-        fotoUrl: dto.fotoUrl,
-        observaciones: dto.observaciones,
-        estadoValidacion,
-      },
+    // Alta + asignación al equipo en una sola transacción: si falla el vínculo,
+    // no queda un jugador huérfano.
+    return this.prisma.$transaction(async (tx) => {
+      const jugador = await tx.jugador.create({
+        data: {
+          nombres: dto.nombres,
+          apellidos: dto.apellidos,
+          fechaNacimiento,
+          anioNacimiento: dto.anioNacimiento,
+          tipoDocumento: dto.tipoDocumento,
+          numeroDocumento: dto.numeroDocumento,
+          fotoUrl: dto.fotoUrl,
+          observaciones: dto.observaciones,
+          estadoValidacion,
+        },
+      });
+      if (dto.equipoId) {
+        await tx.equipoJugador.create({
+          data: {
+            equipoId: dto.equipoId,
+            jugadorId: jugador.id,
+            dorsal: dto.dorsal,
+            posicion: dto.posicion,
+            estadoHabilitacion: nivel === 'ok' ? 'habilitado' : 'observado',
+            motivoObservacion: alertas.length ? alertas.join(' • ') : null,
+          },
+        });
+      }
+      return jugador;
     });
   }
 

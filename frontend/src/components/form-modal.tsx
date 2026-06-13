@@ -19,13 +19,27 @@ export interface FieldDef {
   defaultValue?: any;
   /** Texto de ayuda mostrado bajo el campo */
   hint?: string;
+  /** Para type 'logo': subcarpeta de /uploads donde guardar (default 'logos'). */
+  uploadSubfolder?: 'logos' | 'jugadores' | 'documentos' | 'pagos';
 }
 
 /**
- * Campo de subida de logo/escudo. Sube el archivo a /uploads?subfolder=logos
- * y guarda la URL pública relativa en el valor del campo.
+ * Campo reusable de subida de imagen (logo/escudo/foto). Sube el archivo a
+ * /uploads?subfolder=<subfolder> y guarda la URL pública relativa en el valor.
  */
-function LogoField({ value, onChange }: { value?: string; onChange: (url: string) => void }) {
+export function LogoField({
+  value,
+  onChange,
+  subfolder = 'logos',
+  round = false,
+  label = 'Subir logo',
+}: {
+  value?: string;
+  onChange: (url: string) => void;
+  subfolder?: 'logos' | 'jugadores' | 'documentos' | 'pagos';
+  round?: boolean;
+  label?: string;
+}) {
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -36,7 +50,7 @@ function LogoField({ value, onChange }: { value?: string; onChange: (url: string
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post('/uploads?subfolder=logos', fd, {
+      const res = await api.post(`/uploads?subfolder=${subfolder}`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       onChange(res.data.url);
@@ -51,10 +65,10 @@ function LogoField({ value, onChange }: { value?: string; onChange: (url: string
 
   return (
     <div className="flex items-center gap-3">
-      <div className="h-16 w-16 shrink-0 rounded-md border bg-muted/40 flex items-center justify-center overflow-hidden">
+      <div className={`h-16 w-16 shrink-0 border bg-muted/40 flex items-center justify-center overflow-hidden ${round ? 'rounded-full' : 'rounded-md'}`}>
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="logo" className="h-full w-full object-contain" />
+          <img src={preview} alt="" className="h-full w-full object-cover" />
         ) : (
           <ImageIcon className="h-6 w-6 text-muted-foreground" />
         )}
@@ -70,7 +84,7 @@ function LogoField({ value, onChange }: { value?: string; onChange: (url: string
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" disabled={uploading}
             onClick={() => inputRef.current?.click()}>
-            <Upload className="h-4 w-4" /> {uploading ? 'Subiendo…' : preview ? 'Cambiar' : 'Subir logo'}
+            <Upload className="h-4 w-4" /> {uploading ? 'Subiendo…' : preview ? 'Cambiar' : label}
           </Button>
           {preview && (
             <Button type="button" variant="ghost" size="sm" disabled={uploading}
@@ -220,6 +234,7 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
                   <LogoField
                     value={values[f.name] ?? ''}
                     onChange={(url) => setValues({ ...values, [f.name]: url })}
+                    subfolder={f.uploadSubfolder ?? 'logos'}
                   />
                 ) : (
                   <Input
