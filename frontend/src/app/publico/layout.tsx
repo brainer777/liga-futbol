@@ -23,12 +23,20 @@ export default function PublicoLayout({ children }: { children: React.ReactNode 
               <span className="block text-[11px] font-normal text-muted-foreground leading-none">Portal público</span>
             </span>
           </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
-          >
-            <LogIn className="h-4 w-4" /> Ingresar
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link href="/publico" className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
+              Torneos
+            </Link>
+            <Link href="/publico/estadisticas" className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
+              Estadísticas
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+            >
+              <LogIn className="h-4 w-4" /> Ingresar
+            </Link>
+          </div>
         </div>
       </header>
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">{children}</main>
