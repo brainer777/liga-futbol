@@ -4,13 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays, Printer } from 'lucide-react';
+import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays, Printer, Share2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { ResultadoShareModal, ResultadoShareData } from '@/components/resultado-share';
 
 type ClubSeguro = { nombre?: string; sigla?: string | null; logoUrl?: string | null } | null;
-type EquipoSeguro = { id?: string; nombre: string; club?: ClubSeguro } | null;
+type EquipoSeguro = { id?: string; nombre: string; logoUrl?: string | null; club?: ClubSeguro } | null;
 
 type Torneo = {
   id: string; nombre: string; formato: string; estado: string;
@@ -50,6 +51,7 @@ export default function TorneoPublicoPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [tab, setTab] = React.useState<TabKey>('tabla');
+  const [shareFor, setShareFor] = React.useState<ResultadoShareData | null>(null);
 
   const torneo = useQuery<Torneo>({
     queryKey: ['publico', 'torneo', id],
@@ -126,7 +128,35 @@ export default function TorneoPublicoPage() {
       {tab === 'tabla' && <TablaView q={tabla} />}
       {tab === 'goleadores' && <GoleadoresView q={goleadores} />}
       {tab === 'tarjetas' && <TarjetasView q={tarjetas} />}
-      {tab === 'fixture' && <FixtureView q={fixture} />}
+      {tab === 'fixture' && (
+        <FixtureView
+          q={fixture}
+          onShare={(p) =>
+            setShareFor({
+              local: {
+                nombre: p.equipoLocal?.nombre ?? 'Local',
+                sigla: p.equipoLocal?.club?.sigla,
+                logoUrl: p.equipoLocal?.logoUrl,
+                clubLogoUrl: p.equipoLocal?.club?.logoUrl,
+              },
+              visitante: {
+                nombre: p.equipoVisitante?.nombre ?? 'Visitante',
+                sigla: p.equipoVisitante?.club?.sigla,
+                logoUrl: p.equipoVisitante?.logoUrl,
+                clubLogoUrl: p.equipoVisitante?.club?.logoUrl,
+              },
+              golesLocal: p.resultado!.golesLocal,
+              golesVisitante: p.resultado!.golesVisitante,
+              torneo: torneo.data?.nombre ?? 'Torneo',
+              categoria: torneo.data?.categoria?.nombre,
+              fecha: p.fechaProgramada,
+              jornada: p.jornada,
+            })
+          }
+        />
+      )}
+
+      {shareFor && <ResultadoShareModal data={shareFor} onClose={() => setShareFor(null)} />}
     </div>
   );
 }
@@ -221,7 +251,7 @@ function TarjetasView({ q }: { q: ReturnType<typeof useQuery<Tarjeta[]>> }) {
   );
 }
 
-function FixtureView({ q }: { q: ReturnType<typeof useQuery<Partido[]>> }) {
+function FixtureView({ q, onShare }: { q: ReturnType<typeof useQuery<Partido[]>>; onShare: (p: Partido) => void }) {
   if (q.isLoading || q.isError || !q.data?.length) return <Estado q={q} vacio="Todavía no hay fixture generado." />;
   // Agrupar por jornada (o etapa eliminatoria)
   const grupos = new Map<string, Partido[]>();
@@ -249,6 +279,15 @@ function FixtureView({ q }: { q: ReturnType<typeof useQuery<Partido[]>> }) {
                     <Badge variant={cerrado ? 'success' : 'secondary'} className="shrink-0">
                       {cerrado ? 'Final' : p.estado}
                     </Badge>
+                    {cerrado && p.resultado && (
+                      <button
+                        onClick={() => onShare(p)}
+                        title="Imagen para redes"
+                        className="shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent"
+                      >
+                        <Share2 className="h-3.5 w-3.5" /> Imagen
+                      </button>
+                    )}
                   </CardContent>
                 </Card>
               );

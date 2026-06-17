@@ -37,7 +37,7 @@ const navItems = [
   { href: '/dashboard/jugadores', label: 'Jugadores', icon: UserPlus },
   { href: '/dashboard/pagos', label: 'Pagos', icon: DollarSign },
   { href: '/dashboard/estadisticas', label: 'Estadísticas', icon: TrendingUp },
-  { href: '/publico', label: 'Portal público', icon: Globe, external: true },
+  { href: '/publico', label: 'Web pública', icon: Globe, external: true },
 ];
 
 // Solo visible para roles administrativos (mismos que exige el backend).
