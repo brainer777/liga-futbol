@@ -19,6 +19,7 @@ import {
   KeyRound,
   ScrollText,
   Palette,
+  BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -32,6 +33,7 @@ const navItems = [
   { href: '/dashboard/inscripciones', label: 'Inscripciones', icon: FileText },
   { href: '/dashboard/jugadores', label: 'Jugadores', icon: UserPlus },
   { href: '/dashboard/pagos', label: 'Pagos', icon: DollarSign },
+  { href: '/publico', label: 'Resultados', icon: BarChart3, external: true },
 ];
 
 // Solo visible para roles administrativos (mismos que exige el backend).
@@ -62,13 +64,20 @@ export function Sidebar() {
   const isAdmin = !!user?.roles.some((r) => ROLES_ADMIN.includes(r.nombre));
   const isSuperadmin = !!user?.roles.some((r) => r.nombre === 'Superadministrador');
 
-  const renderItem = (item: { href: string; label: string; icon: typeof LayoutDashboard }) => {
+  const renderItem = (item: {
+    href: string;
+    label: string;
+    icon: typeof LayoutDashboard;
+    external?: boolean;
+  }) => {
     const Icon = item.icon;
-    const active = pathname === item.href;
+    const active = !item.external && pathname === item.href;
     return (
       <Link
         key={item.href}
         href={item.href}
+        target={item.external ? '_blank' : undefined}
+        rel={item.external ? 'noopener noreferrer' : undefined}
         className={cn(
           'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
           active ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-foreground',
