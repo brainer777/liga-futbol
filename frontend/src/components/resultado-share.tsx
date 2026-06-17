@@ -60,6 +60,19 @@ function inicial(e: EquipoCard): string {
   return (e.sigla || e.nombre || '?').trim().slice(0, 3).toUpperCase();
 }
 
+// Colores del escudo de Miranda (rojo, amarillo, negro) para el marco.
+const MIRANDA = ['#CE1126', '#FCD116', '#111111'];
+
+function MarcoMiranda({ pos }: { pos: 'top' | 'bottom' }) {
+  return (
+    <div className={cn('absolute left-0 right-0 flex', pos === 'top' ? 'top-0' : 'bottom-0')} style={{ height: 26 }}>
+      {MIRANDA.map((c) => (
+        <div key={c} className="flex-1" style={{ background: c }} />
+      ))}
+    </div>
+  );
+}
+
 function Escudo({ src, e, size }: { src: string | null; e: EquipoCard; size: number }) {
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
@@ -68,7 +81,7 @@ function Escudo({ src, e, size }: { src: string | null; e: EquipoCard; size: num
   return (
     <div
       style={{ height: size, width: size }}
-      className="rounded-full bg-white/15 flex items-center justify-center text-white font-extrabold text-4xl"
+      className="rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-extrabold text-4xl"
     >
       {inicial(e)}
     </div>
@@ -96,10 +109,12 @@ const Card = React.forwardRef<
       ref={ref}
       style={{ width: f.w, height: f.h }}
       className={cn(
-        'bg-primary text-white flex flex-col items-center relative overflow-hidden',
+        'bg-slate-50 text-slate-900 flex flex-col items-center relative overflow-hidden',
         formato === 'historia' ? 'justify-center gap-32 p-20' : 'justify-between p-16',
       )}
     >
+      <MarcoMiranda pos="top" />
+
       {/* Header: liga */}
       <div className="flex flex-col items-center gap-4">
         {ligaLogo ? (
@@ -107,7 +122,7 @@ const Card = React.forwardRef<
           <img src={ligaLogo} alt="" style={{ height: 110, width: 110 }} className="object-contain" />
         ) : null}
         <div className="text-3xl font-bold tracking-wide text-center">{ligaNombre}</div>
-        <div className="text-lg font-medium uppercase tracking-[0.3em] text-white/70">Resultado final</div>
+        <div className="text-lg font-medium uppercase tracking-[0.3em] text-slate-400">Resultado final</div>
       </div>
 
       {/* Marcador */}
@@ -118,7 +133,7 @@ const Card = React.forwardRef<
         </div>
         <div className={cn('flex items-center gap-4 font-black leading-none tabular-nums', f.marcador)}>
           <span>{data.golesLocal}</span>
-          <span className="text-white/50 text-7xl">-</span>
+          <span className="text-slate-300 text-7xl">-</span>
           <span>{data.golesVisitante}</span>
         </div>
         <div className="flex flex-col items-center gap-5 flex-1 min-w-0">
@@ -130,10 +145,12 @@ const Card = React.forwardRef<
       {/* Footer: torneo */}
       <div className="flex flex-col items-center gap-1 text-center">
         <div className="text-2xl font-semibold">{data.torneo}</div>
-        <div className="text-lg text-white/70">
+        <div className="text-lg text-slate-500">
           {[data.categoria, data.jornada != null ? `Fecha ${data.jornada}` : null, fechaTxt].filter(Boolean).join(' · ')}
         </div>
       </div>
+
+      <MarcoMiranda pos="bottom" />
     </div>
   );
 });
