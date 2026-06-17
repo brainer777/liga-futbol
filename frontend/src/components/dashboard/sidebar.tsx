@@ -19,8 +19,9 @@ import {
   KeyRound,
   ScrollText,
   Palette,
-  BarChart3,
   TrendingUp,
+  Swords,
+  Globe,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -32,10 +33,11 @@ const navItems = [
   { href: '/dashboard/equipos', label: 'Equipos', icon: Users },
   { href: '/dashboard/torneos', label: 'Torneos', icon: Trophy },
   { href: '/dashboard/inscripciones', label: 'Inscripciones', icon: FileText },
+  { href: '/dashboard/fixture', label: 'Fixture y resultados', icon: Swords },
   { href: '/dashboard/jugadores', label: 'Jugadores', icon: UserPlus },
   { href: '/dashboard/pagos', label: 'Pagos', icon: DollarSign },
   { href: '/dashboard/estadisticas', label: 'Estadísticas', icon: TrendingUp },
-  { href: '/publico', label: 'Resultados', icon: BarChart3, external: true },
+  { href: '/publico', label: 'Portal público', icon: Globe, external: true },
 ];
 
 // Solo visible para roles administrativos (mismos que exige el backend).
