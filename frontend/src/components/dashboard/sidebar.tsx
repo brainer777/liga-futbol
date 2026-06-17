@@ -20,6 +20,7 @@ import {
   ScrollText,
   Palette,
   BarChart3,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -33,6 +34,7 @@ const navItems = [
   { href: '/dashboard/inscripciones', label: 'Inscripciones', icon: FileText },
   { href: '/dashboard/jugadores', label: 'Jugadores', icon: UserPlus },
   { href: '/dashboard/pagos', label: 'Pagos', icon: DollarSign },
+  { href: '/dashboard/estadisticas', label: 'Estadísticas', icon: TrendingUp },
   { href: '/publico', label: 'Resultados', icon: BarChart3, external: true },
 ];
 
