@@ -30,7 +30,7 @@ type Formato = 'post' | 'historia';
 // Dimensiones y tamaños por formato. "post" = cuadrado feed; "historia" = vertical 9:16.
 const FORMATOS: Record<Formato, { w: number; h: number; escudo: number; marcador: string; previewScale: number; label: string }> = {
   post: { w: 1080, h: 1080, escudo: 150, marcador: 'text-[120px]', previewScale: 0.34, label: 'Post 1080×1080' },
-  historia: { w: 1080, h: 1920, escudo: 210, marcador: 'text-[150px]', previewScale: 0.2, label: 'Historia 1080×1920' },
+  historia: { w: 1080, h: 1920, escudo: 300, marcador: 'text-[200px]', previewScale: 0.2, label: 'Historia 1080×1920' },
 };
 
 /**
@@ -96,8 +96,8 @@ const Card = React.forwardRef<
       ref={ref}
       style={{ width: f.w, height: f.h }}
       className={cn(
-        'bg-primary text-white flex flex-col items-center justify-between relative overflow-hidden',
-        formato === 'historia' ? 'p-20 py-28' : 'p-16',
+        'bg-primary text-white flex flex-col items-center relative overflow-hidden',
+        formato === 'historia' ? 'justify-center gap-32 p-20' : 'justify-between p-16',
       )}
     >
       {/* Header: liga */}
