@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { PrismaService } from '../prisma/prisma.service';
 import { RegistrarResultadoDto, UpdateResultadoDto } from './dto/resultados.dto';
 import { calcularTabla, calcularEstadicasJugador } from './tabla.calculator';
+import { aplicarFechaCumplida } from './sanciones.rules';
 
 const UMBRAL_AMARILLAS_PARA_SANCION = 3;
 const FECHAS_SANCION_POR_ACUMULACION = 1;
@@ -90,6 +91,14 @@ export class ResultadosService {
       // Sincronizar estadísticas y tabla si está cerrado
       if (dto.cerrar) {
         await this.syncEstadisticasYTabla(tx, partido.torneoId, partido.id);
+        // Primero descontar fechas a las sanciones pendientes (el equipo disputó una fecha),
+        // y recién después generar las sanciones nuevas de este partido.
+        await this.avanzarSancionesPendientes(
+          tx,
+          partido.torneoId,
+          partido.equipoLocalId,
+          partido.equipoVisitanteId,
+        );
         await this.aplicarSancionesAutomaticas(tx, partido.torneoId, partido.id, userId);
       }
       return tx.resultado.findUnique({
@@ -120,6 +129,12 @@ export class ResultadosService {
       });
       await tx.partido.update({ where: { id: r.partidoId }, data: { estado: 'finalizado' } });
       await this.syncEstadisticasYTabla(tx, r.partido.torneoId, r.partidoId);
+      await this.avanzarSancionesPendientes(
+        tx,
+        r.partido.torneoId,
+        r.partido.equipoLocalId,
+        r.partido.equipoVisitanteId,
+      );
       await this.aplicarSancionesAutomaticas(tx, r.partido.torneoId, r.partidoId, userId);
       return tx.resultado.findUnique({
         where: { id },
@@ -352,6 +367,35 @@ export class ResultadosService {
         where: { torneoId_jugadorId: { torneoId, jugadorId: s.jugadorId } },
         update: data,
         create: data,
+      });
+    }
+  }
+
+  /**
+   * Al disputarse un partido, cada jugador de los dos equipos con una sanción pendiente
+   * en el torneo cumple una fecha. Es independiente de que el jugador aparezca o no en
+   * los eventos: la sanción se cumple porque su equipo jugó la fecha.
+   */
+  private async avanzarSancionesPendientes(
+    tx: any,
+    torneoId: string,
+    equipoLocalId: string,
+    equipoVisitanteId: string,
+  ) {
+    const roster = await tx.equipoJugador.findMany({
+      where: { equipoId: { in: [equipoLocalId, equipoVisitanteId] } },
+      select: { jugadorId: true },
+    });
+    const jugadorIds = [...new Set(roster.map((r: { jugadorId: string }) => r.jugadorId))];
+    if (jugadorIds.length === 0) return;
+
+    const pendientes = await tx.sancion.findMany({
+      where: { torneoId, estado: 'pendiente', jugadorId: { in: jugadorIds } },
+    });
+    for (const s of pendientes) {
+      await tx.sancion.update({
+        where: { id: s.id },
+        data: aplicarFechaCumplida(s),
       });
     }
   }
