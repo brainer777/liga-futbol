@@ -164,8 +164,9 @@ describe('grupos y eliminación', () => {
       cantidadGrupos: 2,
       clasificadosPorGrupo: 2,
     });
-    expect(fx.fases).toContain('Eliminatorias');
-    // 4 clasificados (2 por grupo × 2 grupos) → bracket con semifinal + final
+    // 4 clasificados (2 por grupo × 2 grupos) → fase de grupos + bracket semifinal + final
+    expect(fx.fases).toEqual(['Fase de grupos', 'Semifinal', 'Final']);
+    expect(fx.fases).not.toContain('Eliminatorias');
     expect(fx.grupos).toBeDefined();
   });
 });

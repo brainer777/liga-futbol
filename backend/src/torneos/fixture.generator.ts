@@ -314,7 +314,9 @@ function generarGrupos(
     rondas.push(...rondasGrupo);
     warnings.push(...w);
   }
-  const fases = [nombreFase, ...(opciones.conEliminacionPosterior ? ['Eliminatorias'] : [])];
+  // La(s) fase(s) de eliminación las agrega el dispatcher con sus etapas reales
+  // (Semifinal, Final…); acá solo va la fase de grupos.
+  const fases = [nombreFase];
   return { rondas, fases, grupos, warnings };
 }
 

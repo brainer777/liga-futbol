@@ -5,6 +5,11 @@ import { GenerarFixtureDto, UpdatePartidoDto, ReprogramarPartidoDto } from './dt
 import {
   generarFixture, esFormatoValido, EquipoSlot, ResultadoFixture,
 } from './fixture.generator';
+import { calcularTabla } from '../resultados/tabla.calculator';
+import {
+  Clasificado, ordenarClasificados, primeraRondaEliminatoria,
+  siguienteRondaEliminatoria, ganadorDePartido, RondaEliminatoria,
+} from './eliminatorias.rules';
 
 @Injectable()
 export class TorneosService {
@@ -242,6 +247,7 @@ export class TorneosService {
       include: {
         fase: true,
         grupo: true,
+        resultado: { select: { golesLocal: true, golesVisitante: true, cerrado: true } },
         reprogramaciones: { orderBy: { createdAt: 'desc' } },
       },
       orderBy: [{ jornada: 'asc' }, { createdAt: 'asc' }],
@@ -320,6 +326,167 @@ export class TorneosService {
       where: { faseId },
       include: { equipos: { include: { grupo: true } } },
       orderBy: { nombre: 'asc' },
+    });
+  }
+
+  // ============================================================
+  // ELIMINATORIAS (group → knockout)
+  // ============================================================
+
+  private reglasDe(torneo: { puntosVictoria: number; puntosEmpate: number; puntosDerrota: number; criterioDesempate: string }) {
+    return {
+      puntosVictoria: torneo.puntosVictoria,
+      puntosEmpate: torneo.puntosEmpate,
+      puntosDerrota: torneo.puntosDerrota,
+      criterioDesempate: torneo.criterioDesempate as any,
+    };
+  }
+
+  /** Busca la fase por nombre o la crea (al final del orden) como fase de eliminación. */
+  private async asegurarFaseEliminacion(tx: any, torneoId: string, nombre: string): Promise<string> {
+    const existente = await tx.faseTorneo.findFirst({ where: { torneoId, nombre } });
+    if (existente) return existente.id;
+    const max = await tx.faseTorneo.aggregate({ where: { torneoId }, _max: { orden: true } });
+    const fase = await tx.faseTorneo.create({
+      data: { torneoId, nombre, tipo: 'eliminacion', orden: (max._max.orden ?? 0) + 1, estado: 'pendiente' },
+    });
+    return fase.id;
+  }
+
+  /** Persiste los cruces de una ronda de eliminación con una jornada nueva (posterior a todo). */
+  private async crearPartidosRonda(tx: any, torneoId: string, faseId: string, ronda: RondaEliminatoria, userId?: string) {
+    const max = await tx.partido.aggregate({ where: { torneoId }, _max: { jornada: true } });
+    const jornada = (max._max.jornada ?? 0) + 1;
+    const creados = [];
+    for (const cruce of ronda.cruces) {
+      creados.push(await tx.partido.create({
+        data: {
+          torneoId,
+          faseId,
+          jornada,
+          etapaEliminatoria: ronda.etapa,
+          esIda: true,
+          equipoLocalId: cruce.localId,
+          equipoVisitanteId: cruce.visitanteId,
+          estado: 'programado',
+          creadoPorId: userId,
+        },
+      }));
+    }
+    return creados;
+  }
+
+  /** Genera la primera ronda de eliminación a partir de las posiciones de los grupos. */
+  async generarEliminatorias(torneoId: string, dto: { clasificadosPorGrupo?: number }, userId?: string) {
+    const torneo = await this.prisma.torneo.findUnique({
+      where: { id: torneoId },
+      include: {
+        inscripciones: { select: { id: true, equipoId: true } },
+        fases: { orderBy: { orden: 'asc' }, include: { grupos: { include: { equipos: true } } } },
+        partidos: { include: { resultado: true } },
+      },
+    });
+    if (!torneo) throw new NotFoundException(`Torneo ${torneoId} no encontrado`);
+    if (torneo.formato !== 'grupos_y_eliminacion') {
+      throw new BadRequestException('Solo los torneos de grupos y eliminación pueden generar eliminatorias.');
+    }
+    const faseGrupos = torneo.fases.find((f) => f.tipo === 'grupos');
+    if (!faseGrupos) throw new BadRequestException('El torneo no tiene una fase de grupos.');
+
+    const partidosGrupos = torneo.partidos.filter((p) => p.faseId === faseGrupos.id);
+    if (partidosGrupos.length === 0) throw new BadRequestException('La fase de grupos no tiene partidos.');
+    if (!partidosGrupos.every((p) => p.estado === 'finalizado')) {
+      throw new BadRequestException('La fase de grupos no está completa: faltan resultados por cerrar.');
+    }
+    if (torneo.partidos.some((p) => p.etapaEliminatoria)) {
+      throw new BadRequestException('Las eliminatorias ya fueron generadas.');
+    }
+
+    const clasifPorGrupo = dto?.clasificadosPorGrupo ?? 2;
+    const reglas = this.reglasDe(torneo);
+    const clasificados: Clasificado[] = [];
+    for (const grupo of faseGrupos.grupos) {
+      const equipoIds = grupo.equipos.map((ge: any) => ge.equipoId);
+      const partidosDelGrupo = partidosGrupos
+        .filter((p) => p.grupoId === grupo.id && p.resultado)
+        .map((p) => ({
+          id: p.id,
+          equipoLocalId: p.equipoLocalId,
+          equipoVisitanteId: p.equipoVisitanteId,
+          golesLocal: p.resultado!.golesLocal,
+          golesVisitante: p.resultado!.golesVisitante,
+          finalizado: p.resultado!.cerrado,
+          fecha: p.fechaProgramada,
+        }));
+      const inscG = torneo.inscripciones.filter((i) => equipoIds.includes(i.equipoId));
+      const tabla = calcularTabla(reglas, partidosDelGrupo, inscG);
+      tabla.slice(0, clasifPorGrupo).forEach((fila, idx) => {
+        clasificados.push({ equipoId: fila.equipoId, grupo: grupo.nombre, pos: idx + 1 });
+      });
+    }
+
+    const ronda = primeraRondaEliminatoria(ordenarClasificados(clasificados)); // valida 2 o 4
+    return this.prisma.$transaction(async (tx) => {
+      const faseId = await this.asegurarFaseEliminacion(tx, torneoId, ronda.etapa);
+      const partidos = await this.crearPartidosRonda(tx, torneoId, faseId, ronda, userId);
+      await tx.faseTorneo.update({ where: { id: faseGrupos.id }, data: { estado: 'finalizada' } });
+      await tx.faseTorneo.update({ where: { id: faseId }, data: { estado: 'activa' } });
+      return { etapa: ronda.etapa, partidos };
+    });
+  }
+
+  /** Avanza la eliminación: con la ronda actual completa, crea la siguiente con los ganadores. */
+  async avanzarEliminatoria(torneoId: string, dto: { ganadores?: Record<string, string> }, userId?: string) {
+    const torneo = await this.prisma.torneo.findUnique({
+      where: { id: torneoId },
+      include: { fases: { orderBy: { orden: 'asc' } }, partidos: { include: { resultado: true } } },
+    });
+    if (!torneo) throw new NotFoundException(`Torneo ${torneoId} no encontrado`);
+    const elim = torneo.partidos.filter((p) => p.etapaEliminatoria);
+    if (elim.length === 0) throw new BadRequestException('Todavía no se generaron las eliminatorias.');
+
+    const maxJornada = Math.max(...elim.map((p) => p.jornada ?? 0));
+    const rondaActual = elim
+      .filter((p) => (p.jornada ?? 0) === maxJornada)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    if (!rondaActual.every((p) => p.estado === 'finalizado' && p.resultado?.cerrado)) {
+      throw new BadRequestException('La ronda actual de eliminación no está completa.');
+    }
+
+    const overrides = dto?.ganadores ?? {};
+    const ganadores: string[] = [];
+    const empatadas: string[] = [];
+    for (const p of rondaActual) {
+      const g = ganadorDePartido(
+        { equipoLocalId: p.equipoLocalId, equipoVisitanteId: p.equipoVisitanteId, golesLocal: p.resultado!.golesLocal, golesVisitante: p.resultado!.golesVisitante },
+        overrides[p.id],
+      );
+      if (!g) empatadas.push(p.id); else ganadores.push(g);
+    }
+    if (empatadas.length > 0) {
+      throw new BadRequestException(
+        `Hay llave(s) empatada(s) sin ganador definido (${empatadas.join(', ')}). Indicá quién pasó para poder avanzar.`,
+      );
+    }
+
+    const siguiente = siguienteRondaEliminatoria(ganadores);
+    if (!siguiente) {
+      // La ronda actual era la final: ya hay campeón.
+      const faseFinalId = rondaActual[0].faseId;
+      if (faseFinalId) await this.prisma.faseTorneo.update({ where: { id: faseFinalId }, data: { estado: 'finalizada' } });
+      return { campeonId: ganadores[0], mensaje: 'La eliminación terminó: hay campeón.' };
+    }
+    if (elim.some((p) => (p.jornada ?? 0) > maxJornada)) {
+      throw new BadRequestException('La siguiente ronda ya fue generada.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const faseId = await this.asegurarFaseEliminacion(tx, torneoId, siguiente.etapa);
+      const partidos = await this.crearPartidosRonda(tx, torneoId, faseId, siguiente, userId);
+      const faseActualId = rondaActual[0].faseId;
+      if (faseActualId) await tx.faseTorneo.update({ where: { id: faseActualId }, data: { estado: 'finalizada' } });
+      await tx.faseTorneo.update({ where: { id: faseId }, data: { estado: 'activa' } });
+      return { etapa: siguiente.etapa, partidos };
     });
   }
 }

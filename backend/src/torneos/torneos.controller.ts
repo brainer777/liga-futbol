@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGu
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TorneosService } from './torneos.service';
 import { CreateTorneoDto, UpdateTorneoDto } from './dto/torneos.dto';
-import { GenerarFixtureDto, UpdatePartidoDto, ReprogramarPartidoDto } from './dto/fixture.dto';
+import { GenerarFixtureDto, UpdatePartidoDto, ReprogramarPartidoDto, GenerarEliminatoriasDto, AvanzarEliminatoriaDto } from './dto/fixture.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -42,6 +42,26 @@ export class TorneosController {
     @CurrentUser('id') userId: string,
   ) {
     return this.service.generarFixture(id, dto, userId);
+  }
+
+  @Post(':id/generar-eliminatorias')
+  @Roles('Superadministrador', 'Administrador de liga')
+  generarEliminatorias(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: GenerarEliminatoriasDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.generarEliminatorias(id, dto, userId);
+  }
+
+  @Post(':id/avanzar-eliminatoria')
+  @Roles('Superadministrador', 'Administrador de liga')
+  avanzarEliminatoria(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: AvanzarEliminatoriaDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.avanzarEliminatoria(id, dto, userId);
   }
 
   @Get(':id/fases')

@@ -1,5 +1,14 @@
-import { IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class GenerarEliminatoriasDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(2) clasificadosPorGrupo?: number;
+}
+
+export class AvanzarEliminatoriaDto {
+  /** Map partidoId → equipoId ganador, para resolver llaves empatadas (penales/repetición). */
+  @IsOptional() @IsObject() ganadores?: Record<string, string>;
+}
 
 export class GenerarFixtureDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(2) @Max(32) cantidadGrupos?: number;
