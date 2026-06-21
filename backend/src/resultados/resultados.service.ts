@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegistrarResultadoDto, UpdateResultadoDto } from './dto/resultados.dto';
 import { calcularTabla, calcularEstadicasJugador } from './tabla.calculator';
 import { aplicarFechaCumplida, estaSuspendida, habilitacionBloquea } from './sanciones.rules';
+import { golesDesdeEventos } from './reconciliacion';
 
 const UMBRAL_AMARILLAS_PARA_SANCION = 3;
 const FECHAS_SANCION_POR_ACUMULACION = 1;
@@ -39,6 +40,18 @@ export class ResultadosService {
       }
       // No permitir cargar jugadores suspendidos o no habilitados en la planilla
       await this.validarElegibilidad(partido.torneoId, dto.eventos);
+    }
+
+    // Al cerrar, los goles cargados como eventos deben sumar exactamente el marcador
+    // (así los goleadores nunca quedan cortos). Un borrador sí puede quedar incompleto.
+    if (dto.cerrar) {
+      this.validarReconciliacion(
+        dto.eventos ?? [],
+        partido.equipoLocalId,
+        partido.equipoVisitanteId,
+        dto.golesLocal,
+        dto.golesVisitante,
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -120,10 +133,17 @@ export class ResultadosService {
   async cerrar(id: string, userId?: string) {
     const r = await this.prisma.resultado.findUnique({
       where: { id },
-      include: { partido: true },
+      include: { partido: true, eventos: true },
     });
     if (!r) throw new NotFoundException(`Resultado ${id} no encontrado`);
     if (r.cerrado) return r;
+    this.validarReconciliacion(
+      r.eventos,
+      r.partido.equipoLocalId,
+      r.partido.equipoVisitanteId,
+      r.golesLocal,
+      r.golesVisitante,
+    );
     return this.prisma.$transaction(async (tx) => {
       await tx.resultado.update({
         where: { id },
@@ -370,6 +390,23 @@ export class ResultadosService {
         update: data,
         create: data,
       });
+    }
+  }
+
+  /** Lanza 400 si los goles de los eventos no coinciden con el marcador. */
+  private validarReconciliacion(
+    eventos: { tipo: string; equipoId: string }[],
+    equipoLocalId: string,
+    equipoVisitanteId: string,
+    golesLocal: number,
+    golesVisitante: number,
+  ) {
+    const { local, visitante } = golesDesdeEventos(eventos, equipoLocalId, equipoVisitanteId);
+    if (local !== golesLocal || visitante !== golesVisitante) {
+      throw new BadRequestException(
+        `Los goles cargados (${local}-${visitante}) no coinciden con el marcador ` +
+          `(${golesLocal}-${golesVisitante}). Cargá todos los goles como eventos antes de cerrar.`,
+      );
     }
   }
 
