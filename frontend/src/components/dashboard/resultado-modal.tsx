@@ -123,6 +123,10 @@ export function ResultadoModal({ partido, onClose, onSaved }: Props) {
   const golesEventosVisitante = eventos.filter((e) => e.tipo === 'gol' && e.equipoId === partido.equipoVisitante.id).length
     + eventos.filter((e) => e.tipo === 'gol_en_contra' && e.equipoId === partido.equipoLocal.id).length;
 
+  // Para cerrar, los goles cargados deben coincidir con el marcador (el backend lo exige).
+  const desajusteGoles = golesLocal !== golesEventosLocal || golesVisitante !== golesEventosVisitante;
+  const bloqueaCierre = cerrar && desajusteGoles;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-card border rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -185,10 +189,10 @@ export function ResultadoModal({ partido, onClose, onSaved }: Props) {
                 <div className="font-bold text-lg">{partido.equipoVisitante.nombre}</div>
               </div>
             </div>
-            {(golesLocal !== golesEventosLocal || golesVisitante !== golesEventosVisitante) && (
+            {desajusteGoles && (
               <p className="text-xs text-amber-600 mt-2 text-center">
                 ⚠️ Los goles del marcador ({golesLocal}-{golesVisitante}) no coinciden con los eventos ({golesEventosLocal}-{golesEventosVisitante}).
-                Ajustá uno u otros antes de cerrar.
+                Cargá cada gol como evento {cerrar ? 'para poder cerrar.' : 'antes de cerrar.'}
               </p>
             )}
           </div>
@@ -319,7 +323,11 @@ export function ResultadoModal({ partido, onClose, onSaved }: Props) {
 
         <div className="p-6 border-t sticky bottom-0 bg-card flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={registrar.isPending}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={registrar.isPending}>
+          <Button
+            onClick={handleSubmit}
+            disabled={registrar.isPending || bloqueaCierre}
+            title={bloqueaCierre ? 'Los goles cargados deben coincidir con el marcador para cerrar.' : undefined}
+          >
             {registrar.isPending ? 'Guardando…' : (cerrar ? 'Registrar y cerrar' : 'Registrar (sin cerrar)')}
           </Button>
         </div>
