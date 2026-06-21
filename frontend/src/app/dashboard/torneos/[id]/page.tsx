@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Trophy, Users, Shield, Calendar, Hash, MapPin, Play, Pencil, Trash2, RefreshCw, Clock, FileText,
-  Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer,
+  Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer, Swords,
 } from 'lucide-react';
 import { api, getApiErrorMessage, downloadFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ type Partido = {
   observaciones: string | null;
   grupo: { id: string; nombre: string } | null;
   fase: { id: string; nombre: string; tipo: string } | null;
+  resultado: { golesLocal: number; golesVisitante: number; cerrado: boolean } | null;
   reprogramaciones: any[];
 };
 
@@ -79,6 +80,8 @@ export default function TorneoDetallePage() {
   const [generarOpen, setGenerarOpen] = React.useState(false);
   const [reprogramarFor, setReprogramarFor] = React.useState<Partido | null>(null);
   const [resultadoFor, setResultadoFor] = React.useState<Partido | null>(null);
+  const [avanzarOpen, setAvanzarOpen] = React.useState(false);
+  const [ganadoresPick, setGanadoresPick] = React.useState<Record<string, string>>({});
 
   const { data: torneo, isLoading, refetch } = useQuery<Torneo>({
     queryKey: ['torneo', id],
@@ -146,6 +149,26 @@ export default function TorneoDetallePage() {
     onError: (e) => alert(getApiErrorMessage(e)),
   });
 
+  const refrescarTorneo = () => {
+    qc.invalidateQueries({ queryKey: ['torneo', id] });
+    qc.invalidateQueries({ queryKey: ['partidos-torneo', id] });
+  };
+  const generarEliminatorias = useMutation({
+    mutationFn: () => api.post(`/torneos/${id}/generar-eliminatorias`, {}).then((r) => r.data),
+    onSuccess: (res) => { alert(`Eliminatorias generadas: ${res.etapa}.`); refrescarTorneo(); },
+    onError: (e) => alert(getApiErrorMessage(e)),
+  });
+  const avanzarEliminatoria = useMutation({
+    mutationFn: (ganadores: Record<string, string>) =>
+      api.post(`/torneos/${id}/avanzar-eliminatoria`, { ganadores }).then((r) => r.data),
+    onSuccess: (res) => {
+      alert(res.campeonId ? '🏆 ' + (res.mensaje ?? 'Hay campeón.') : `Siguiente ronda: ${res.etapa}.`);
+      setAvanzarOpen(false);
+      refrescarTorneo();
+    },
+    onError: (e) => alert(getApiErrorMessage(e)),
+  });
+
   if (isLoading) return <div className="text-muted-foreground">Cargando torneo…</div>;
   if (!torneo) return <div className="text-destructive">No se encontró el torneo.</div>;
 
@@ -173,6 +196,27 @@ export default function TorneoDetallePage() {
   const grupos = secciones;
 
   const equipoMap = new Map(torneo.inscripciones.map((i) => [i.equipo.id, i.equipo]));
+  const nombreEquipo = (eid: string) => equipoMap.get(eid)?.nombre ?? '—';
+
+  // --- Estado de la eliminación (group → knockout) ---
+  const esGruposElim = torneo.formato === 'grupos_y_eliminacion';
+  const partidosGrupo = partidos.filter((p) => p.grupo);
+  const partidosElim = partidos.filter((p) => p.etapaEliminatoria);
+  const gruposCompletos = partidosGrupo.length > 0 && partidosGrupo.every((p) => p.estado === 'finalizado');
+  const hayElim = partidosElim.length > 0;
+  const puedeGenerarElim = esGruposElim && gruposCompletos && !hayElim;
+  const maxJornadaElim = hayElim ? Math.max(...partidosElim.map((p) => p.jornada ?? 0)) : 0;
+  const rondaActualElim = partidosElim.filter((p) => (p.jornada ?? 0) === maxJornadaElim);
+  const rondaActualCompleta = hayElim && rondaActualElim.every((p) => p.estado === 'finalizado');
+  const esFinalJugada = rondaActualCompleta && rondaActualElim.length === 1;
+  const puedeAvanzar = rondaActualCompleta;
+  const llavesEmpatadas = rondaActualElim.filter(
+    (p) => p.resultado && p.resultado.golesLocal === p.resultado.golesVisitante,
+  );
+  const onAvanzar = () => {
+    if (llavesEmpatadas.length > 0) { setGanadoresPick({}); setAvanzarOpen(true); }
+    else avanzarEliminatoria.mutate({});
+  };
 
   const generarFields: FieldDef[] = [
     { name: 'fechaInicio', label: 'Fecha de inicio (opcional)', type: 'date' },
@@ -425,12 +469,33 @@ export default function TorneoDetallePage() {
       {/* FIXTURE */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2"><Calendar className="h-4 w-4" /> Fixture</CardTitle>
-          <CardDescription>
-            {partidos.length === 0
-              ? 'Aún no se generó el fixture. Hacé clic en "Generar fixture".'
-              : `${partidos.length} partido(s) en ${grupos.length} sección(es).`}
-          </CardDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2"><Calendar className="h-4 w-4" /> Fixture</CardTitle>
+              <CardDescription>
+                {partidos.length === 0
+                  ? 'Aún no se generó el fixture. Hacé clic en "Generar fixture".'
+                  : `${partidos.length} partido(s) en ${grupos.length} sección(es).`}
+              </CardDescription>
+            </div>
+            {esGruposElim && (
+              <div className="flex flex-col items-end gap-1">
+                {puedeGenerarElim && (
+                  <Button size="sm" onClick={() => generarEliminatorias.mutate()} disabled={generarEliminatorias.isPending}>
+                    <Swords className="h-4 w-4" /> Generar eliminatorias
+                  </Button>
+                )}
+                {hayElim && puedeAvanzar && (
+                  <Button size="sm" onClick={onAvanzar} disabled={avanzarEliminatoria.isPending}>
+                    <Swords className="h-4 w-4" /> {esFinalJugada ? 'Definir campeón' : 'Generar siguiente ronda'}
+                  </Button>
+                )}
+                {esGruposElim && !gruposCompletos && !hayElim && (
+                  <span className="text-xs text-muted-foreground">Completá la fase de grupos para generar las llaves.</span>
+                )}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {grupos.length === 0 ? null : (
@@ -449,7 +514,11 @@ export default function TorneoDetallePage() {
                         <div key={p.id} className="flex items-center gap-2 border rounded-md p-2 bg-muted/30">
                           <div className="flex-1 grid grid-cols-3 gap-2 items-center text-sm">
                             <div className="text-right font-medium">{local?.nombre || 'Local'}</div>
-                            <div className="text-center text-xs text-muted-foreground">vs</div>
+                            <div className="text-center text-muted-foreground">
+                              {p.resultado
+                                ? <span className="font-bold text-foreground">{p.resultado.golesLocal}–{p.resultado.golesVisitante}</span>
+                                : <span className="text-xs">vs</span>}
+                            </div>
                             <div className="text-left font-medium">{visitante?.nombre || 'Visitante'}</div>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -633,6 +702,49 @@ export default function TorneoDetallePage() {
             qc.invalidateQueries({ queryKey: ['torneo', id] });
           }}
         />
+      )}
+
+      {avanzarOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-lg w-full max-w-lg p-6 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2"><Swords className="h-5 w-5" /> Definir quién pasa</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Hay llave(s) empatada(s). Elegí el equipo que avanza (penales/repetición) para poder generar la ronda siguiente.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {llavesEmpatadas.map((p) => (
+                <div key={p.id} className="border rounded-md p-3">
+                  <div className="text-sm font-medium mb-2">
+                    {nombreEquipo(p.equipoLocalId)} {p.resultado?.golesLocal}–{p.resultado?.golesVisitante} {nombreEquipo(p.equipoVisitanteId)}
+                  </div>
+                  <div className="flex gap-2">
+                    {[p.equipoLocalId, p.equipoVisitanteId].map((eid) => (
+                      <Button
+                        key={eid}
+                        size="sm"
+                        variant={ganadoresPick[p.id] === eid ? 'default' : 'outline'}
+                        onClick={() => setGanadoresPick({ ...ganadoresPick, [p.id]: eid })}
+                      >
+                        Pasa {nombreEquipo(eid)}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAvanzarOpen(false)} disabled={avanzarEliminatoria.isPending}>Cancelar</Button>
+              <Button
+                onClick={() => avanzarEliminatoria.mutate(ganadoresPick)}
+                disabled={avanzarEliminatoria.isPending || llavesEmpatadas.some((p) => !ganadoresPick[p.id])}
+              >
+                {avanzarEliminatoria.isPending ? 'Avanzando…' : 'Confirmar y avanzar'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
