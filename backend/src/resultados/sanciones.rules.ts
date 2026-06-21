@@ -24,3 +24,26 @@ export function aplicarFechaCumplida(
   }
   return { fechasCumplidas };
 }
+
+/**
+ * ¿Una sanción está vigente (cumpliéndose todavía)? Solo bloquea cuando está
+ * `pendiente` y aún le faltan fechas. Las cumplidas/condonadas/anuladas no bloquean.
+ */
+export function estaSuspendida(s: {
+  estado: string;
+  fechasCumplidas: number;
+  fechasCumplir: number;
+}): boolean {
+  return s.estado === 'pendiente' && s.fechasCumplidas < s.fechasCumplir;
+}
+
+/**
+ * Estados de habilitación que impiden que un jugador sea cargado en un resultado.
+ * Solo los explícitamente negativos: rechazado y suspendido (estado administrativo,
+ * distinto de una Sancion). `pendiente`/`observado`/`habilitado` no bloquean por ahora.
+ */
+export const HABILITACION_BLOQUEANTE = ['rechazado', 'suspendido'] as const;
+
+export function habilitacionBloquea(estado: string): boolean {
+  return (HABILITACION_BLOQUEANTE as readonly string[]).includes(estado);
+}

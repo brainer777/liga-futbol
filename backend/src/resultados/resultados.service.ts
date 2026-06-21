@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { PrismaService } from '../prisma/prisma.service';
 import { RegistrarResultadoDto, UpdateResultadoDto } from './dto/resultados.dto';
 import { calcularTabla, calcularEstadicasJugador } from './tabla.calculator';
-import { aplicarFechaCumplida } from './sanciones.rules';
+import { aplicarFechaCumplida, estaSuspendida, habilitacionBloquea } from './sanciones.rules';
 
 const UMBRAL_AMARILLAS_PARA_SANCION = 3;
 const FECHAS_SANCION_POR_ACUMULACION = 1;
@@ -37,6 +37,8 @@ export class ResultadosService {
           throw new BadRequestException(`El equipo ${ev.equipoId} no juega este partido.`);
         }
       }
+      // No permitir cargar jugadores suspendidos o no habilitados en la planilla
+      await this.validarElegibilidad(partido.torneoId, dto.eventos);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -368,6 +370,66 @@ export class ResultadosService {
         update: data,
         create: data,
       });
+    }
+  }
+
+  /**
+   * Rechaza el resultado si algún jugador de los eventos está suspendido (sanción vigente
+   * en el torneo) o no habilitado (estado de habilitación negativo en su equipo). Es el
+   * único punto donde el sistema conoce qué jugadores intervienen, así que acá se aplica
+   * la regla. No frena a un jugador que entra a la cancha pero no figura en ningún evento
+   * (no existe planilla/alineación todavía).
+   */
+  private async validarElegibilidad(
+    torneoId: string,
+    eventos: { jugadorId: string; equipoId: string }[],
+  ) {
+    const jugadorIds = [...new Set(eventos.map((e) => e.jugadorId))];
+    if (jugadorIds.length === 0) return;
+
+    const [sanciones, equipoJugadores, jugadores] = await Promise.all([
+      this.prisma.sancion.findMany({
+        where: { torneoId, estado: 'pendiente', jugadorId: { in: jugadorIds } },
+      }),
+      this.prisma.equipoJugador.findMany({
+        where: {
+          OR: eventos.map((e) => ({ jugadorId: e.jugadorId, equipoId: e.equipoId })),
+        },
+      }),
+      this.prisma.jugador.findMany({
+        where: { id: { in: jugadorIds } },
+        select: { id: true, nombres: true, apellidos: true },
+      }),
+    ]);
+
+    const nombre = (id: string) => {
+      const j = jugadores.find((x) => x.id === id);
+      return j ? `${j.apellidos}, ${j.nombres}` : id;
+    };
+    const habMap = new Map(
+      equipoJugadores.map((ej) => [`${ej.jugadorId}:${ej.equipoId}`, ej.estadoHabilitacion]),
+    );
+
+    const errores: string[] = [];
+    for (const id of jugadorIds) {
+      if (sanciones.some((s) => s.jugadorId === id && estaSuspendida(s))) {
+        errores.push(`${nombre(id)} está suspendido y no puede ser incluido en el resultado.`);
+      }
+    }
+    // Habilitación: evaluar por par jugador+equipo tal como viene en el evento
+    const paresVistos = new Set<string>();
+    for (const e of eventos) {
+      const key = `${e.jugadorId}:${e.equipoId}`;
+      if (paresVistos.has(key)) continue;
+      paresVistos.add(key);
+      const estado = habMap.get(key);
+      if (estado && habilitacionBloquea(estado)) {
+        errores.push(`${nombre(e.jugadorId)} no está habilitado (${estado}).`);
+      }
+    }
+
+    if (errores.length > 0) {
+      throw new BadRequestException(errores.join(' '));
     }
   }
 
