@@ -149,29 +149,28 @@ export default function TorneoDetallePage() {
   if (isLoading) return <div className="text-muted-foreground">Cargando torneo…</div>;
   if (!torneo) return <div className="text-destructive">No se encontró el torneo.</div>;
 
-  const esRoundRobin = ['todos_contra_todos', 'ida_y_vuelta', 'triangular', 'cuadrangular', 'hexagonal', 'liguilla', 'grupos'].includes(torneo.formato);
-  const esEliminacion = ['eliminacion_directa', 'doble_eliminacion', 'grupos_y_eliminacion'].includes(torneo.formato);
-
-  let grupos: { nombre: string; partidos: Partido[] }[] = [];
-  if (esRoundRobin) {
-    const map = new Map<number, Partido[]>();
-    for (const p of partidos) {
-      const j = p.jornada ?? 0;
-      if (!map.has(j)) map.set(j, []);
-      map.get(j)!.push(p);
+  // Agrupar los partidos en secciones según su naturaleza (no según el formato del torneo),
+  // así un torneo de grupos+eliminación muestra cada grupo por separado y las llaves por etapa.
+  const secciones: { nombre: string; orden: number; partidos: Partido[] }[] = [];
+  const seccionIdx = new Map<string, { nombre: string; orden: number; partidos: Partido[] }>();
+  const seccion = (key: string, nombre: string, orden: number) => {
+    let s = seccionIdx.get(key);
+    if (!s) { s = { nombre, orden, partidos: [] }; seccionIdx.set(key, s); secciones.push(s); }
+    return s;
+  };
+  for (const p of partidos) {
+    if (p.grupo) {
+      seccion(`g:${p.grupo.nombre}`, `Grupo ${p.grupo.nombre}`, 0).partidos.push(p);
+    } else if (p.etapaEliminatoria) {
+      // las etapas van después de los grupos, ordenadas por su jornada (avance del bracket)
+      seccion(`e:${p.etapaEliminatoria}`, p.etapaEliminatoria, 1000 + (p.jornada ?? 0)).partidos.push(p);
+    } else {
+      seccion(`j:${p.jornada ?? 0}`, `Jornada ${p.jornada ?? 0}`, p.jornada ?? 0).partidos.push(p);
     }
-    grupos = Array.from(map.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([j, ps]) => ({ nombre: `Jornada ${j}`, partidos: ps }));
-  } else if (esEliminacion) {
-    const map = new Map<string, Partido[]>();
-    for (const p of partidos) {
-      const k = p.etapaEliminatoria || 'Eliminatorias';
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(p);
-    }
-    grupos = Array.from(map.entries()).map(([nombre, ps]) => ({ nombre, partidos: ps }));
   }
+  secciones.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es'));
+  for (const s of secciones) s.partidos.sort((a, b) => (a.jornada ?? 0) - (b.jornada ?? 0));
+  const grupos = secciones;
 
   const equipoMap = new Map(torneo.inscripciones.map((i) => [i.equipo.id, i.equipo]));
 
@@ -430,7 +429,7 @@ export default function TorneoDetallePage() {
           <CardDescription>
             {partidos.length === 0
               ? 'Aún no se generó el fixture. Hacé clic en "Generar fixture".'
-              : `${partidos.length} partido(s) en ${grupos.length} jornada(s)/etapa(s).`}
+              : `${partidos.length} partido(s) en ${grupos.length} sección(es).`}
           </CardDescription>
         </CardHeader>
         <CardContent>

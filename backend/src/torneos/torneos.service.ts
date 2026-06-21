@@ -191,8 +191,8 @@ export class TorneosService {
           if (cruce.local.id === '__bye__' || cruce.visitante.id === '__bye__') {
             continue;
           }
-          // Determinar fase
-          const idxFase = faseOrden.indexOf(ronda.nombre);
+          // Determinar fase (la ronda trae su fase; si no, caemos a su nombre)
+          const idxFase = faseOrden.indexOf(ronda.fase ?? ronda.nombre);
           const faseId = idxFase >= 0 ? faseIdPorIndice[idxFase] : null;
           const grupoId = cruce.grupo ? gruposCreados[cruce.grupo] : null;
           const partido = await tx.partido.create({

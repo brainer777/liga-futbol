@@ -55,6 +55,8 @@ export interface Ronda {
   nombre: string;
   numero: number;
   cruces: Cruce[];
+  /** Nombre de la fase a la que pertenece la ronda (debe coincidir con un valor de `fases`). */
+  fase?: string;
 }
 
 export interface ResultadoFixture {
@@ -297,15 +299,16 @@ function generarGrupos(
   const grupos = distribuirEnGrupos(equipos, cg);
   const rondas: Ronda[] = [];
   const nombreFase = opciones.conEliminacionPosterior ? 'Fase de grupos' : 'Fase regular';
-  rondas.push({ nombre: nombreFase, numero: 1, cruces: [] });
+  rondas.push({ nombre: nombreFase, numero: 1, cruces: [], fase: nombreFase });
   for (const [nombreGrupo, lista] of Object.entries(grupos)) {
     if (lista.length < 2) {
       warnings.push(`El grupo ${nombreGrupo} tiene un solo equipo, no genera partidos en esta fase.`);
       continue;
     }
     const { rondas: rondasGrupo, warnings: w } = roundRobin(lista, opciones.conIdaVuelta);
-    // Reetiquetar cruces con el nombre del grupo
+    // Reetiquetar cruces con el nombre del grupo y la ronda con su fase
     for (const r of rondasGrupo) {
+      r.fase = nombreFase;
       for (const c of r.cruces) c.grupo = nombreGrupo;
     }
     rondas.push(...rondasGrupo);
@@ -352,24 +355,29 @@ export function generarFixture(
     case 'todos_contra_todos':
     case 'liguilla': {
       const { rondas, warnings } = roundRobin(siembra);
+      for (const r of rondas) r.fase = 'Fase regular';
       return { formato, rondas, fases: ['Fase regular'], warnings };
     }
     case 'ida_y_vuelta': {
       const { rondas, warnings } = roundRobin(siembra, true);
+      for (const r of rondas) r.fase = r.cruces[0]?.esIda === false ? 'Fase regular (vuelta)' : 'Fase regular (ida)';
       return { formato, rondas, fases: ['Fase regular (ida)', 'Fase regular (vuelta)'], warnings };
     }
     case 'triangular':
     case 'cuadrangular':
     case 'hexagonal': {
       const { rondas, warnings } = roundRobin(siembra);
+      for (const r of rondas) r.fase = 'Fase regular';
       return { formato, rondas, fases: ['Fase regular'], warnings };
     }
     case 'eliminacion_directa': {
       const { rondas, fases, warnings } = eliminacionDirecta(siembra);
+      for (const r of rondas) r.fase = r.nombre; // la ronda ya se llama como su etapa/fase
       return { formato, rondas, fases, warnings };
     }
     case 'doble_eliminacion': {
       const { rondas, fases, warnings } = dobleEliminacion(siembra);
+      for (const r of rondas) r.fase = r.nombre;
       return { formato, rondas, fases, warnings };
     }
     case 'grupos': {
@@ -392,9 +400,9 @@ export function generarFixture(
         clasificadosSlots.push({ id: `__ganador_grupo_${i + 1}__`, nombre: `Clasificado ${i + 1}` });
       }
       const bracket = eliminacionDirecta(clasificadosSlots);
-      // Numerar rondas
+      // Numerar rondas y etiquetar su fase
       const offset = rondas.length;
-      for (const r of bracket.rondas) r.numero += offset;
+      for (const r of bracket.rondas) { r.numero += offset; r.fase = r.nombre; }
       rondas.push(...bracket.rondas);
       warnings.push(...bracket.warnings);
       return { formato, rondas, fases: [...fases, ...bracket.fases], grupos, warnings };
