@@ -520,6 +520,7 @@ model Partido {
   grupo             Grupo?            @relation(fields: [grupoId], references: [id], onDelete: SetNull)
   equipoLocal       Equipo            @relation("PartidoLocal", fields: [equipoLocalId], references: [id], onDelete: Restrict)
   equipoVisitante   Equipo            @relation("PartidoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: Restrict)
+  arbitro           Arbitro?          @relation(fields: [arbitroId], references: [id], onDelete: SetNull)
   resultado         Resultado?
   reprogramaciones  PartidoReprogramacion[]
 
@@ -528,6 +529,7 @@ model Partido {
   @@index([grupoId])
   @@index([equipoLocalId])
   @@index([equipoVisitanteId])
+  @@index([arbitroId])
   @@index([fechaProgramada])
   @@index([estado])
   @@map("partidos")
@@ -699,4 +701,37 @@ model Configuracion {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("configuracion")
+}
+
+// ============================================
+// ÁRBITROS Y SEDES
+// ============================================
+// Entidades de catálogo asignables a un partido. Campos mínimos por ahora.
+// `arbitroId` ya existía como columna suelta en Partido; acá se le da el modelo
+// y la relación (onDelete: SetNull → borrar un árbitro no rompe el historial).
+// Se desactivan (estado=inactivo) en vez de borrarse cuando ya tienen partidos.
+
+model Arbitro {
+  id        String        @id @default(uuid()) @db.Uuid
+  nombre    String        @db.VarChar(150)
+  telefono  String?       @db.VarChar(30)
+  email     String?       @db.VarChar(150)
+  estado    EstadoGeneral @default(activo)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  partidos  Partido[]
+
+  @@map("arbitros")
+}
+
+model Sede {
+  id        String        @id @default(uuid()) @db.Uuid
+  nombre    String        @db.VarChar(150)
+  direccion String?       @db.VarChar(255)
+  estado    EstadoGeneral @default(activo)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("sedes")
 }

@@ -24,6 +24,8 @@ import { ReportesModule } from './reportes/reportes.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { ConfiguracionModule } from './configuracion/configuracion.module';
 import { EstadisticasModule } from './estadisticas/estadisticas.module';
+import { ArbitrosModule } from './arbitros/arbitros.module';
+import { SedesModule } from './sedes/sedes.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -67,6 +69,8 @@ import { HealthController } from './health/health.controller';
     AuditoriaModule,
     ConfiguracionModule,
     EstadisticasModule,
+    ArbitrosModule,
+    SedesModule,
   ],
   controllers: [HealthController],
   providers: [
