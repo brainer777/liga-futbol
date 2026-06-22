@@ -26,6 +26,7 @@ export class UpdatePartidoDto {
   @IsOptional() @IsString() @MaxLength(8) horaProgramada?: string;
   @IsOptional() @IsString() @MaxLength(120) cancha?: string;
   @IsOptional() @IsUUID() arbitroId?: string;
+  @IsOptional() @IsUUID() sedeId?: string;
   @IsOptional() @IsIn(['borrador', 'programado', 'en_juego', 'finalizado', 'suspendido', 'reprogramado', 'cancelado'])
   estado?: string;
   @IsOptional() @IsString() @MaxLength(2000) observaciones?: string;

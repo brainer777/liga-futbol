@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSedeDto, UpdateSedeDto } from './dto/sedes.dto';
 
@@ -28,10 +28,13 @@ export class SedesService {
     return this.prisma.sede.update({ where: { id }, data: dto });
   }
 
-  // NOTA: la sede aún no se enlaza a Partido (eso llega en el paso de asignación).
-  // Cuando exista Partido.sedeId, acá se bloquea el borrado si está en uso, como en árbitros.
   async remove(id: string) {
     await this.findOne(id);
+    const enUso = await this.prisma.partido.count({ where: { sedeId: id } });
+    if (enUso > 0)
+      throw new ConflictException(
+        `No se puede eliminar: ${enUso} partido(s) tienen asignada esta sede. Desactívala en su lugar.`,
+      );
     await this.prisma.sede.delete({ where: { id } });
     return { ok: true };
   }

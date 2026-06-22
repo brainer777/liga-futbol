@@ -43,6 +43,8 @@ export class TorneosService {
               include: {
                 grupo: true,
                 fase: true,
+                arbitro: { select: { id: true, nombre: true } },
+                sede: { select: { id: true, nombre: true } },
               },
             },
           },
@@ -247,6 +249,8 @@ export class TorneosService {
       include: {
         fase: true,
         grupo: true,
+        arbitro: { select: { id: true, nombre: true } },
+        sede: { select: { id: true, nombre: true } },
         resultado: { select: { golesLocal: true, golesVisitante: true, cerrado: true } },
         reprogramaciones: { orderBy: { createdAt: 'desc' } },
       },
@@ -261,6 +265,8 @@ export class TorneosService {
         torneo: true,
         fase: true,
         grupo: true,
+        arbitro: { select: { id: true, nombre: true } },
+        sede: { select: { id: true, nombre: true } },
         reprogramaciones: { orderBy: { createdAt: 'desc' } },
       },
     });
@@ -272,7 +278,14 @@ export class TorneosService {
     await this.findOnePartido(id);
     const data: any = { ...dto };
     if (dto.fechaProgramada) data.fechaProgramada = new Date(dto.fechaProgramada);
-    return this.prisma.partido.update({ where: { id }, data });
+    return this.prisma.partido.update({
+      where: { id },
+      data,
+      include: {
+        arbitro: { select: { id: true, nombre: true } },
+        sede: { select: { id: true, nombre: true } },
+      },
+    });
   }
 
   async reprogramarPartido(id: string, dto: ReprogramarPartidoDto, userId?: string) {

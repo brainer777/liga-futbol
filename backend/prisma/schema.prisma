@@ -509,6 +509,7 @@ model Partido {
   horaProgramada    String?       @map("hora_programada") @db.VarChar(8)
   cancha            String?       @db.VarChar(120)
   arbitroId         String?       @map("arbitro_id") @db.Uuid
+  sedeId            String?       @map("sede_id") @db.Uuid
   estado            EstadoPartido @default(borrador)
   observaciones     String?       @db.Text
   creadoPorId       String?       @map("creado_por_id") @db.Uuid
@@ -521,6 +522,7 @@ model Partido {
   equipoLocal       Equipo            @relation("PartidoLocal", fields: [equipoLocalId], references: [id], onDelete: Restrict)
   equipoVisitante   Equipo            @relation("PartidoVisitante", fields: [equipoVisitanteId], references: [id], onDelete: Restrict)
   arbitro           Arbitro?          @relation(fields: [arbitroId], references: [id], onDelete: SetNull)
+  sede              Sede?             @relation(fields: [sedeId], references: [id], onDelete: SetNull)
   resultado         Resultado?
   reprogramaciones  PartidoReprogramacion[]
 
@@ -530,6 +532,7 @@ model Partido {
   @@index([equipoLocalId])
   @@index([equipoVisitanteId])
   @@index([arbitroId])
+  @@index([sedeId])
   @@index([fechaProgramada])
   @@index([estado])
   @@map("partidos")
@@ -732,6 +735,8 @@ model Sede {
   estado    EstadoGeneral @default(activo)
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
+
+  partidos  Partido[]
 
   @@map("sedes")
 }

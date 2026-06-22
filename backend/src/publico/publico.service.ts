@@ -123,6 +123,8 @@ export class PublicoService {
         estado: true,
         fase: { select: { id: true, nombre: true } },
         grupo: { select: { id: true, nombre: true } },
+        arbitro: { select: { id: true, nombre: true } },
+        sede: { select: { id: true, nombre: true } },
         equipoLocal: { select: { id: true, nombre: true, logoUrl: true, club: { select: { sigla: true, logoUrl: true } } } },
         equipoVisitante: { select: { id: true, nombre: true, logoUrl: true, club: { select: { sigla: true, logoUrl: true } } } },
         resultado: { select: { golesLocal: true, golesVisitante: true, cerrado: true } },
