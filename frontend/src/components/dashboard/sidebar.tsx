@@ -22,6 +22,8 @@ import {
   TrendingUp,
   Swords,
   Globe,
+  Flag,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -42,6 +44,8 @@ const navItems = [
 
 // Solo visible para roles administrativos (mismos que exige el backend).
 const adminNavItems = [
+  { href: '/dashboard/arbitros', label: 'Árbitros', icon: Flag },
+  { href: '/dashboard/sedes', label: 'Sedes', icon: MapPin },
   { href: '/dashboard/usuarios', label: 'Usuarios', icon: UserCog },
   { href: '/dashboard/roles', label: 'Roles', icon: KeyRound },
   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ScrollText },
