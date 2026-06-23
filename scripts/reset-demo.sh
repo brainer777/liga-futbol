@@ -20,10 +20,10 @@ DB_NAME="${POSTGRES_DB:-liga_futbol}"
 
 # sanciones NO tiene FK a partido/torneo, así que no cascadea: hay que listarla
 # explícitamente (igual que estadisticas_* y el resto del dominio).
-TABLAS="auditoria clubes equipo_jugadores equipos estadisticas_equipo \
+TABLAS="arbitros auditoria clubes equipo_jugadores equipos estadisticas_equipo \
 estadisticas_jugador fases_torneo grupo_equipos grupos inscripciones jugadores \
 jugadores_documentos pagos partidos partidos_reprogramaciones resultado_eventos \
-resultados sanciones torneos"
+resultados sanciones sedes torneos"
 
 echo "🗑️  Vaciando tablas demo (preservando branding, usuarios y categorías)..."
 docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" \

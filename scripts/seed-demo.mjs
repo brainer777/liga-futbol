@@ -62,6 +62,18 @@ const CLUBES = [
   { nombre: 'Sportivo Las Lomas', sigla: 'SLL' },
 ];
 
+const SEDES = [
+  { nombre: 'Estadio Municipal', direccion: 'Av. Principal 1000' },
+  { nombre: 'Complejo Norte', direccion: 'Ruta 8 km 12' },
+  { nombre: 'Polideportivo Sur', direccion: 'Calle Los Robles 250' },
+];
+
+const ARBITROS = [
+  { nombre: 'Carlos Pereyra', telefono: '0981-111222' },
+  { nombre: 'Marta Giménez', telefono: '0982-333444' },
+  { nombre: 'Rubén Ortega', telefono: '0983-555666' },
+];
+
 const NOMBRES = ['Lucas', 'Matías', 'Diego', 'Santiago', 'Nicolás', 'Joaquín', 'Tomás', 'Bruno', 'Iván', 'Facundo'];
 const APELLIDOS = ['Gómez', 'Fernández', 'López', 'Martínez', 'Sosa', 'Romero', 'Díaz', 'Acosta', 'Silva', 'Vega'];
 //             idx:   0          1           2            3              4               5            6            7
@@ -146,6 +158,13 @@ async function main() {
   }
   console.log('✅ Habilitaciones seteadas (1 jugador "observado")');
 
+  // --- Sedes y árbitros (catálogo asignable a los partidos) ---
+  const sedes = [];
+  for (const s of SEDES) sedes.push(await req('POST', '/sedes', s));
+  const arbitros = [];
+  for (const a of ARBITROS) arbitros.push(await req('POST', '/arbitros', a));
+  console.log(`✅ ${sedes.length} sede(s) y ${arbitros.length} árbitro(s) creados`);
+
   // --- Torneo round-robin en curso ---
   const torneo = await req('POST', '/torneos', {
     temporadaId: temporada.id,
@@ -164,6 +183,16 @@ async function main() {
   });
   const partidos = await req('GET', `/torneos/${torneo.id}/partidos`);
   console.log(`✅ Torneo "${torneo.nombre}" (en_curso) · ${equipos.length} equipos · ${partidos.length} partidos`);
+
+  // Asigna sede + árbitro a cada partido (rotando), para que el fixture muestre datos.
+  for (let k = 0; k < partidos.length; k++) {
+    await req('PATCH', `/partidos/${partidos[k].id}`, {
+      sedeId: sedes[k % sedes.length].id,
+      arbitroId: arbitros[k % arbitros.length].id,
+      cancha: `Cancha ${(k % 2) + 1}`,
+    });
+  }
+  console.log(`✅ Sede y árbitro asignados a ${partidos.length} partido(s)`);
 
   const porEquipo = new Map(equipos.map((e) => [e.id, e]));
 
