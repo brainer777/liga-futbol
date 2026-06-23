@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Trophy, Users, Shield, Calendar, Hash, MapPin, Play, Pencil, Trash2, RefreshCw, Clock, FileText,
-  Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer, Swords,
+  Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer, Swords, Flag, Building2, Settings2,
 } from 'lucide-react';
 import { api, getApiErrorMessage, downloadFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,10 @@ type Partido = {
   fechaProgramada: string | null;
   horaProgramada: string | null;
   cancha: string | null;
+  arbitroId: string | null;
+  sedeId: string | null;
+  arbitro: { id: string; nombre: string } | null;
+  sede: { id: string; nombre: string } | null;
   estado: 'borrador' | 'programado' | 'en_juego' | 'finalizado' | 'suspendido' | 'reprogramado' | 'cancelado';
   observaciones: string | null;
   grupo: { id: string; nombre: string } | null;
@@ -79,6 +83,7 @@ export default function TorneoDetallePage() {
   const id = params?.id as string;
   const [generarOpen, setGenerarOpen] = React.useState(false);
   const [reprogramarFor, setReprogramarFor] = React.useState<Partido | null>(null);
+  const [editarFor, setEditarFor] = React.useState<Partido | null>(null);
   const [resultadoFor, setResultadoFor] = React.useState<Partido | null>(null);
   const [avanzarOpen, setAvanzarOpen] = React.useState(false);
   const [ganadoresPick, setGanadoresPick] = React.useState<Record<string, string>>({});
@@ -92,6 +97,14 @@ export default function TorneoDetallePage() {
     queryKey: ['partidos-torneo', id],
     queryFn: () => api.get(`/torneos/${id}/partidos`).then((r) => r.data),
     enabled: !!id,
+  });
+  const { data: arbitros = [] } = useQuery<{ id: string; nombre: string }[]>({
+    queryKey: ['arbitros'],
+    queryFn: () => api.get('/arbitros').then((r) => r.data),
+  });
+  const { data: sedes = [] } = useQuery<{ id: string; nombre: string }[]>({
+    queryKey: ['sedes'],
+    queryFn: () => api.get('/sedes').then((r) => r.data),
   });
   const { data: tabla = [] } = useQuery<any[]>({
     queryKey: ['tabla-torneo', id],
@@ -132,6 +145,17 @@ export default function TorneoDetallePage() {
       qc.invalidateQueries({ queryKey: ['partidos-torneo', id] });
       qc.invalidateQueries({ queryKey: ['torneo', id] });
       setReprogramarFor(null);
+    },
+    onError: (e) => alert(getApiErrorMessage(e)),
+  });
+
+  const editarPartido = useMutation({
+    mutationFn: ({ partidoId, data }: { partidoId: string; data: any }) =>
+      api.patch(`/partidos/${partidoId}`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['partidos-torneo', id] });
+      qc.invalidateQueries({ queryKey: ['torneo', id] });
+      setEditarFor(null);
     },
     onError: (e) => alert(getApiErrorMessage(e)),
   });
@@ -238,6 +262,12 @@ export default function TorneoDetallePage() {
     { name: 'fechaProgramada', label: 'Nueva fecha', type: 'date' },
     { name: 'horaProgramada', label: 'Nueva hora (HH:mm)', placeholder: '15:00' },
     { name: 'cancha', label: 'Nueva cancha' },
+  ];
+
+  const editarFields: FieldDef[] = [
+    { name: 'sedeId', label: 'Sede', type: 'select', options: sedes.map((s) => ({ value: s.id, label: s.nombre })) },
+    { name: 'arbitroId', label: 'Árbitro', type: 'select', options: arbitros.map((a) => ({ value: a.id, label: a.nombre })) },
+    { name: 'cancha', label: 'Cancha / detalle (opcional)' },
   ];
 
   return (
@@ -529,7 +559,9 @@ export default function TorneoDetallePage() {
                                 {p.horaProgramada && <span className="flex items-center gap-1 ml-1"><Clock className="h-3 w-3" />{p.horaProgramada}</span>}
                               </span>
                             )}
+                            {p.sede && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{p.sede.nombre}</span>}
                             {p.cancha && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.cancha}</span>}
+                            {p.arbitro && <span className="flex items-center gap-1"><Flag className="h-3 w-3" />{p.arbitro.nombre}</span>}
                             {p.grupo && <Badge variant="outline">Grupo {p.grupo.nombre}</Badge>}
                             <Badge variant={estadoBadge[p.estado] || 'secondary'}>{p.estado}</Badge>
                             {reproCount > 0 && <span className="text-amber-600" title={`${reproCount} reprogramación(es)`}>↻{reproCount}</span>}
@@ -538,6 +570,11 @@ export default function TorneoDetallePage() {
                             {p.estado !== 'finalizado' && p.estado !== 'cancelado' && (
                               <Button variant="default" size="sm" onClick={() => setResultadoFor(p)}>
                                 <Target className="h-3 w-3" /> Resultado
+                              </Button>
+                            )}
+                            {p.estado !== 'cancelado' && (
+                              <Button variant="ghost" size="icon" title="Asignar sede / árbitro" onClick={() => setEditarFor(p)}>
+                                <Settings2 className="h-3 w-3" />
                               </Button>
                             )}
                             {torneo.permiteReprogramacion && p.estado !== 'finalizado' && (
@@ -680,6 +717,27 @@ export default function TorneoDetallePage() {
           if (!v.horaProgramada) delete v.horaProgramada;
           if (!v.cancha) delete v.cancha;
           return reprogramar.mutateAsync({ partidoId: reprogramarFor.id, data: v });
+        }}
+      />
+
+      <FormModal
+        open={!!editarFor}
+        title={editarFor ? 'Asignar sede / árbitro' : ''}
+        fields={editarFields}
+        initialValues={editarFor ? {
+          sedeId: editarFor.sedeId || '',
+          arbitroId: editarFor.arbitroId || '',
+          cancha: editarFor.cancha || '',
+        } : undefined}
+        onClose={() => setEditarFor(null)}
+        onSubmit={(values) => {
+          if (!editarFor) return Promise.resolve();
+          const v: any = { ...values };
+          // Select vacío ('') = limpiar la asignación → null (el backend lo acepta).
+          v.sedeId = v.sedeId || null;
+          v.arbitroId = v.arbitroId || null;
+          v.cancha = v.cancha ? v.cancha : null;
+          return editarPartido.mutateAsync({ partidoId: editarFor.id, data: v });
         }}
       />
 

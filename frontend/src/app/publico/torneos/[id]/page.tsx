@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays, Printer, Share2 } from 'lucide-react';
+import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays, Printer, Share2, MapPin, Flag, Building2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,8 +27,9 @@ type Goleador = { goles: number; jugador: { nombres: string; apellidos: string }
 type Tarjeta = { amarillas: number; rojas: number; jugador: { nombres: string; apellidos: string } | null; equipo: EquipoSeguro };
 type Partido = {
   id: string; jornada: number | null; etapaEliminatoria: string | null; estado: string;
-  fechaProgramada: string | null; horaProgramada: string | null;
+  fechaProgramada: string | null; horaProgramada: string | null; cancha: string | null;
   fase: { nombre: string } | null; grupo: { nombre: string } | null;
+  sede: { nombre: string } | null; arbitro: { nombre: string } | null;
   equipoLocal: EquipoSeguro; equipoVisitante: EquipoSeguro;
   resultado: { golesLocal: number; golesVisitante: number; cerrado: boolean } | null;
 };
@@ -270,23 +271,38 @@ function FixtureView({ q, onShare }: { q: ReturnType<typeof useQuery<Partido[]>>
               const cerrado = p.resultado?.cerrado;
               return (
                 <Card key={p.id}>
-                  <CardContent className="p-3 flex items-center gap-3 text-sm">
-                    <div className="flex-1 text-right font-medium">{equipoLabel(p.equipoLocal)}</div>
-                    <div className="px-3 py-1 rounded-md bg-muted font-bold tabular-nums min-w-[3.5rem] text-center">
-                      {p.resultado ? `${p.resultado.golesLocal} - ${p.resultado.golesVisitante}` : 'vs'}
+                  <CardContent className="p-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 text-right font-medium">{equipoLabel(p.equipoLocal)}</div>
+                      <div className="px-3 py-1 rounded-md bg-muted font-bold tabular-nums min-w-[3.5rem] text-center">
+                        {p.resultado ? `${p.resultado.golesLocal} - ${p.resultado.golesVisitante}` : 'vs'}
+                      </div>
+                      <div className="flex-1 font-medium">{equipoLabel(p.equipoVisitante)}</div>
+                      <Badge variant={cerrado ? 'success' : 'secondary'} className="shrink-0">
+                        {cerrado ? 'Final' : p.estado}
+                      </Badge>
+                      {cerrado && p.resultado && (
+                        <button
+                          onClick={() => onShare(p)}
+                          title="Imagen para redes"
+                          className="shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent"
+                        >
+                          <Share2 className="h-3.5 w-3.5" /> Imagen
+                        </button>
+                      )}
                     </div>
-                    <div className="flex-1 font-medium">{equipoLabel(p.equipoVisitante)}</div>
-                    <Badge variant={cerrado ? 'success' : 'secondary'} className="shrink-0">
-                      {cerrado ? 'Final' : p.estado}
-                    </Badge>
-                    {cerrado && p.resultado && (
-                      <button
-                        onClick={() => onShare(p)}
-                        title="Imagen para redes"
-                        className="shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent"
-                      >
-                        <Share2 className="h-3.5 w-3.5" /> Imagen
-                      </button>
+                    {(p.fechaProgramada || p.sede || p.cancha || p.arbitro) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        {p.fechaProgramada && (
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3" />
+                            {new Date(p.fechaProgramada).toLocaleDateString()}{p.horaProgramada ? ` ${p.horaProgramada}` : ''}
+                          </span>
+                        )}
+                        {p.sede && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{p.sede.nombre}</span>}
+                        {p.cancha && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.cancha}</span>}
+                        {p.arbitro && <span className="flex items-center gap-1"><Flag className="h-3 w-3" />{p.arbitro.nombre}</span>}
+                      </div>
                     )}
                   </CardContent>
                 </Card>
