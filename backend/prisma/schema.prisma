@@ -692,10 +692,13 @@ model Auditoria {
 // hace upsert con `where: { singleton: true }`.
 // `colorPrimario` se guarda como triple HSL "H S% L%" (lo que consume la
 // variable CSS --primary del frontend), NO como hex.
-// Diseñado para extenderse a multi-liga: en el futuro se le agrega `ligaId`.
+// Multi-liga (fase 1): cada liga tiene UNA fila de Configuracion (su branding).
+// `singleton` se mantiene durante la transición; el contexto de tenant y su
+// retiro llegan en una fase posterior. `ligaId` es @unique → relación 1:1 con Liga.
 model Configuracion {
   id            String   @id @default(uuid()) @db.Uuid
   singleton     Boolean  @unique @default(true)
+  ligaId        String   @unique @map("liga_id") @db.Uuid
   nombreLiga    String   @default("Liga de Fútbol") @map("nombre_liga") @db.VarChar(100)
   logoUrl       String?  @map("logo_url")
   faviconUrl    String?  @map("favicon_url")
@@ -703,7 +706,28 @@ model Configuracion {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
+  liga          Liga     @relation(fields: [ligaId], references: [id], onDelete: Cascade)
+
   @@map("configuracion")
+}
+
+// ============================================
+// LIGA (raíz de tenant — multi-liga)
+// ============================================
+// Raíz del multi-tenant. En fase 1 existe una sola liga ("principal", creada en
+// la migración a partir del nombre actual de la configuración). Las demás tablas
+// tenant-scoped reciben su `ligaId` en fases posteriores.
+model Liga {
+  id            String         @id @default(uuid()) @db.Uuid
+  nombre        String         @db.VarChar(100)
+  slug          String         @unique @db.VarChar(60)
+  estado        EstadoGeneral  @default(activo)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  configuracion Configuracion?
+
+  @@map("ligas")
 }
 
 // ============================================

@@ -11,6 +11,20 @@ const DEFAULTS = {
   colorPrimario: '142 70% 35%',
 };
 
+/**
+ * Slug de la liga default (la creada por la migración de fase 1 multi-liga).
+ * Multi-liga fase 1: Configuracion exige `ligaId`, así que los branches que
+ * crean la config si faltara conectan/crean esta liga. En la práctica la fila
+ * ya existe siempre (la migra la inserta), pero la relación debe satisfacerse.
+ */
+const DEFAULT_LIGA_SLUG = 'principal';
+const ligaPrincipal = {
+  connectOrCreate: {
+    where: { slug: DEFAULT_LIGA_SLUG },
+    create: { nombre: DEFAULTS.nombreLiga, slug: DEFAULT_LIGA_SLUG },
+  },
+};
+
 @Injectable()
 export class ConfiguracionService {
   constructor(
@@ -22,7 +36,9 @@ export class ConfiguracionService {
   async get() {
     const row = await this.prisma.configuracion.findFirst({ where: { singleton: true } });
     if (row) return row;
-    return this.prisma.configuracion.create({ data: { singleton: true, ...DEFAULTS } });
+    return this.prisma.configuracion.create({
+      data: { singleton: true, ...DEFAULTS, liga: ligaPrincipal },
+    });
   }
 
   /** Campos seguros para consumo PÚBLICO (login y portal, sin auth). */
@@ -41,7 +57,7 @@ export class ConfiguracionService {
     return this.prisma.configuracion.upsert({
       where: { singleton: true },
       update: { ...dto },
-      create: { singleton: true, ...DEFAULTS, ...dto },
+      create: { singleton: true, ...DEFAULTS, ...dto, liga: ligaPrincipal },
     });
   }
 
