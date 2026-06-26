@@ -12,7 +12,7 @@ import { fileUrl } from '@/lib/branding';
 export interface FieldDef {
   name: string;
   label: string;
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'checkbox' | 'textarea' | 'select' | 'multiselect' | 'logo';
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'checkbox' | 'textarea' | 'select' | 'multiselect' | 'logo' | 'roles-liga';
   required?: boolean;
   placeholder?: string;
   options?: { value: string; label: string }[];
@@ -21,6 +21,80 @@ export interface FieldDef {
   hint?: string;
   /** Para type 'logo': subcarpeta de /uploads donde guardar (default 'logos'). */
   uploadSubfolder?: 'logos' | 'jugadores' | 'documentos' | 'pagos';
+  /** Para type 'roles-liga': ligas disponibles para anclar roles de liga. */
+  ligaOptions?: { value: string; label: string }[];
+  /** Para type 'roles-liga': roles de plataforma (van sin liga). Default ['Superadministrador']. */
+  platformRoles?: string[];
+}
+
+/** Asignación rol→liga en el editor. Para roles de plataforma, ligaSlug = null. */
+export type RolLiga = { nombre: string; ligaSlug: string | null };
+
+/**
+ * Editor de roles multi-liga: filas (rol + liga). El selector de liga se
+ * deshabilita y se limpia para los roles de plataforma (p.ej. Superadministrador),
+ * que valen en todas las ligas.
+ */
+export function RolesLigaField({
+  value,
+  onChange,
+  roleOptions,
+  ligaOptions,
+  platformRoles,
+}: {
+  value: RolLiga[];
+  onChange: (v: RolLiga[]) => void;
+  roleOptions: { value: string; label: string }[];
+  ligaOptions: { value: string; label: string }[];
+  platformRoles: string[];
+}) {
+  const rows = Array.isArray(value) ? value : [];
+  const isPlatform = (nombre: string) => platformRoles.includes(nombre);
+  const setRow = (i: number, patch: Partial<RolLiga>) => {
+    onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  };
+  return (
+    <div className="space-y-2">
+      {rows.length === 0 && <p className="text-sm text-muted-foreground">Sin roles asignados.</p>}
+      {rows.map((row, i) => {
+        const plataforma = isPlatform(row.nombre);
+        return (
+          <div key={i} className="flex gap-2 items-start">
+            <select
+              className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={row.nombre}
+              onChange={(e) => {
+                const nombre = e.target.value;
+                setRow(i, { nombre, ligaSlug: isPlatform(nombre) ? null : row.ligaSlug ?? '' });
+              }}
+            >
+              <option value="">Rol…</option>
+              {roleOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
+              className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+              value={plataforma ? '' : row.ligaSlug ?? ''}
+              disabled={plataforma || !row.nombre}
+              onChange={(e) => setRow(i, { ligaSlug: e.target.value })}
+            >
+              <option value="">{plataforma ? 'Todas (plataforma)' : 'Liga…'}</option>
+              {ligaOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <Button type="button" variant="ghost" size="icon" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      })}
+      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { nombre: '', ligaSlug: '' }])}>
+        + Agregar rol
+      </Button>
+    </div>
+  );
 }
 
 /**
@@ -101,7 +175,7 @@ export function LogoField({
 
 function emptyValue(type?: FieldDef['type']) {
   if (type === 'checkbox') return false;
-  if (type === 'multiselect') return [];
+  if (type === 'multiselect' || type === 'roles-liga') return [];
   return '';
 }
 
@@ -235,6 +309,14 @@ export function FormModal({ open, title, fields, initialValues, onClose, onSubmi
                     value={values[f.name] ?? ''}
                     onChange={(url) => setValues({ ...values, [f.name]: url })}
                     subfolder={f.uploadSubfolder ?? 'logos'}
+                  />
+                ) : f.type === 'roles-liga' ? (
+                  <RolesLigaField
+                    value={values[f.name] ?? []}
+                    onChange={(v) => setValues({ ...values, [f.name]: v })}
+                    roleOptions={f.options ?? []}
+                    ligaOptions={f.ligaOptions ?? []}
+                    platformRoles={f.platformRoles ?? ['Superadministrador']}
                   />
                 ) : (
                   <Input

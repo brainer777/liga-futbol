@@ -11,14 +11,19 @@ import { DataTable } from '@/components/data-table';
 import { FormModal, FieldDef } from '@/components/form-modal';
 
 type Rol = { id: string; nombre: string };
+// Rol asignado a un usuario, con la liga a la que aplica (null = plataforma).
+type RolAsignado = { id: string; nombre: string; ligaId: string | null; ligaNombre: string | null; ligaSlug: string | null };
+type LigaResumen = { id: string; nombre: string; slug: string };
 type Usuario = {
   id: string;
   nombre: string;
   email: string;
   estado: 'activo' | 'inactivo' | 'bloqueado';
-  roles: Rol[];
+  roles: RolAsignado[];
   createdAt: string;
 };
+
+const PLATFORM_ROLES = ['Superadministrador'];
 
 const estadoVariant: Record<Usuario['estado'], 'success' | 'secondary' | 'destructive'> = {
   activo: 'success',
@@ -41,6 +46,13 @@ export default function UsuariosPage() {
     queryFn: () => api.get('/roles').then((r) => r.data),
   });
 
+  // Ligas a las que se pueden anclar los roles de liga (las accesibles del user;
+  // para un Superadmin son todas las activas). No 403ea como /ligas.
+  const { data: ligas = [] } = useQuery<LigaResumen[]>({
+    queryKey: ['mis-ligas'],
+    queryFn: () => api.get('/auth/mis-ligas').then((r) => r.data),
+  });
+
   const create = useMutation({
     mutationFn: (data: any) => api.post('/usuarios', data).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['usuarios'] }); setOpen(false); },
@@ -58,6 +70,7 @@ export default function UsuariosPage() {
   });
 
   const roleOptions = roles.map((r) => ({ value: r.nombre, label: r.nombre }));
+  const ligaOptions = ligas.map((l) => ({ value: l.slug, label: l.nombre }));
 
   // Los campos cambian entre alta y edición (password obligatorio solo al crear;
   // estado solo se muestra al editar).
@@ -88,21 +101,42 @@ export default function UsuariosPage() {
     base.push({
       name: 'roles',
       label: 'Roles',
-      type: 'multiselect',
+      type: 'roles-liga',
       options: roleOptions,
-      hint: 'Definen los permisos del usuario.',
+      ligaOptions,
+      platformRoles: PLATFORM_ROLES,
+      hint: 'Cada rol aplica a una liga; Superadministrador es de plataforma (todas las ligas).',
     });
     return base;
-  }, [editing, JSON.stringify(roleOptions)]);
+  }, [editing, JSON.stringify(roleOptions), JSON.stringify(ligaOptions)]);
 
   const initialValues = editing
-    ? { nombre: editing.nombre, email: editing.email, estado: editing.estado, roles: editing.roles.map((r) => r.nombre) }
+    ? {
+        nombre: editing.nombre,
+        email: editing.email,
+        estado: editing.estado,
+        roles: editing.roles.map((r) => ({ nombre: r.nombre, ligaSlug: r.ligaSlug })),
+      }
     : undefined;
 
   const handleSubmit = (values: Record<string, any>) => {
     const payload: any = { ...values };
     // No enviar password vacío (en edición significa "no cambiar").
     if (!payload.password) delete payload.password;
+    // Normalizar roles: descartar filas sin rol; los de plataforma van sin liga.
+    const filas: { nombre: string; ligaSlug: string | null }[] = Array.isArray(values.roles) ? values.roles : [];
+    const rolesNorm = filas
+      .filter((f) => f.nombre)
+      .map((f) => ({
+        nombre: f.nombre,
+        ligaSlug: PLATFORM_ROLES.includes(f.nombre) ? null : f.ligaSlug || null,
+      }));
+    const sinLiga = rolesNorm.find((r) => !PLATFORM_ROLES.includes(r.nombre) && !r.ligaSlug);
+    if (sinLiga) {
+      alert(`El rol "${sinLiga.nombre}" requiere una liga.`);
+      return Promise.reject(new Error('liga requerida'));
+    }
+    payload.roles = rolesNorm;
     if (editing) {
       return update.mutateAsync({ id: editing.id, data: payload });
     }
@@ -117,7 +151,12 @@ export default function UsuariosPage() {
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.roles.length
-            ? row.original.roles.map((r) => <Badge key={r.id} variant="outline">{r.nombre}</Badge>)
+            ? row.original.roles.map((r, i) => (
+                <Badge key={`${r.id}:${r.ligaId ?? 'plat'}:${i}`} variant="outline">
+                  {r.nombre}
+                  {r.ligaNombre ? ` · ${r.ligaNombre}` : ' · plataforma'}
+                </Badge>
+              ))
             : <span className="text-muted-foreground text-xs">—</span>}
         </div>
       ),
