@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 import { UpdateConfiguracionDto } from './dto/configuracion.dto';
 
 /** Valores por defecto si la fila aún no existe (deben coincidir con la migración). */
@@ -11,39 +12,28 @@ const DEFAULTS = {
   colorPrimario: '142 70% 35%',
 };
 
-/**
- * Slug de la liga default (la creada por la migración de fase 1 multi-liga).
- * Multi-liga fase 1: Configuracion exige `ligaId`, así que los branches que
- * crean la config si faltara conectan/crean esta liga. En la práctica la fila
- * ya existe siempre (la migra la inserta), pero la relación debe satisfacerse.
- */
-const DEFAULT_LIGA_SLUG = 'principal';
-const ligaPrincipal = {
-  connectOrCreate: {
-    where: { slug: DEFAULT_LIGA_SLUG },
-    create: { nombre: DEFAULTS.nombreLiga, slug: DEFAULT_LIGA_SLUG },
-  },
-};
-
 @Injectable()
 export class ConfiguracionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
+    private readonly tenant: TenantContextService,
   ) {}
 
-  /** Devuelve la fila única, creándola con defaults si por algún motivo falta. */
+  /** Branding de la liga del request; lo crea con defaults si por algún motivo falta. */
   async get() {
-    const row = await this.prisma.configuracion.findFirst({ where: { singleton: true } });
+    const ligaId = await this.tenant.getLigaId();
+    const row = await this.prisma.configuracion.findUnique({ where: { ligaId } });
     if (row) return row;
     return this.prisma.configuracion.create({
-      data: { singleton: true, ...DEFAULTS, liga: ligaPrincipal },
+      data: { ...DEFAULTS, liga: { connect: { id: ligaId } } },
     });
   }
 
   /** Campos seguros para consumo PÚBLICO (login y portal, sin auth). */
   async getPublic() {
-    const row = await this.prisma.configuracion.findFirst({ where: { singleton: true } });
+    const ligaId = await this.tenant.getLigaId();
+    const row = await this.prisma.configuracion.findUnique({ where: { ligaId } });
     const src = row ?? DEFAULTS;
     return {
       nombreLiga: src.nombreLiga,
@@ -54,10 +44,11 @@ export class ConfiguracionService {
   }
 
   async update(dto: UpdateConfiguracionDto) {
+    const ligaId = await this.tenant.getLigaId();
     return this.prisma.configuracion.upsert({
-      where: { singleton: true },
+      where: { ligaId },
       update: { ...dto },
-      create: { singleton: true, ...DEFAULTS, ...dto, liga: ligaPrincipal },
+      create: { ...DEFAULTS, ...dto, liga: { connect: { id: ligaId } } },
     });
   }
 

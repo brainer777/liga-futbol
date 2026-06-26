@@ -783,12 +783,11 @@ model Auditoria {
 // hace upsert con `where: { singleton: true }`.
 // `colorPrimario` se guarda como triple HSL "H S% L%" (lo que consume la
 // variable CSS --primary del frontend), NO como hex.
-// Multi-liga (fase 1): cada liga tiene UNA fila de Configuracion (su branding).
-// `singleton` se mantiene durante la transición; el contexto de tenant y su
-// retiro llegan en una fase posterior. `ligaId` es @unique → relación 1:1 con Liga.
+// Multi-liga: cada liga tiene UNA fila de Configuracion (su branding).
+// `ligaId` es @unique → relación 1:1 con Liga (es la clave de identidad de la
+// fila; el viejo `singleton` se retiró en fase 3b).
 model Configuracion {
   id            String   @id @default(uuid()) @db.Uuid
-  singleton     Boolean  @unique @default(true)
   ligaId        String   @unique @map("liga_id") @db.Uuid
   nombreLiga    String   @default("Liga de Fútbol") @map("nombre_liga") @db.VarChar(100)
   logoUrl       String?  @map("logo_url")

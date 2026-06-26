@@ -3,9 +3,11 @@ import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ClsModule } from 'nestjs-cls';
 import { join } from 'path';
 import { EmbeddedPostgresModule } from './embedded-postgres/embedded-postgres.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { TenantModule } from './tenant/tenant.module';
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { RolesModule } from './roles/roles.module';
@@ -34,6 +36,20 @@ import { HealthController } from './health/health.controller';
       isGlobal: true,
       envFilePath: ['.env', '.env.local'],
     }),
+    // Contexto por request (AsyncLocalStorage). El middleware stashea el header
+    // X-Liga-Slug; TenantContextService lo resuelve a un ligaId de forma lazy.
+    ClsModule.forRoot({
+      global: true,
+      middleware: {
+        mount: true,
+        setup: (cls, req) => {
+          const raw = (req.headers as Record<string, string | string[] | undefined>)['x-liga-slug'];
+          const slug = (Array.isArray(raw) ? raw[0] : raw)?.toString().trim();
+          cls.set('ligaSlug', slug || null);
+        },
+      },
+    }),
+    TenantModule,
     // Rate-limiting global por IP. Configurable por env; default 100 req / 60s.
     // Se resuelve con factory (no constante) para leer el .env ya cargado.
     ThrottlerModule.forRootAsync({
