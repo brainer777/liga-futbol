@@ -20,7 +20,11 @@ export function BrandingProvider({ slug }: { slug?: string } = {}) {
   const { data } = useBranding(slug);
 
   useEffect(() => {
-    if (!data) return;
+    // Solo aplicamos si hay una liga REALMENTE resuelta (slug presente). Sin slug
+    // y con 2+ ligas el backend devuelve defaults con slug null: en ese caso NO
+    // tocamos nada, así la instancia con slug (dashboard/portal) manda y no hay
+    // pelea de --primary entre dos providers. Con 1 liga el fallback sí trae slug.
+    if (!data?.slug) return;
     const root = document.documentElement;
     if (data.colorPrimario) {
       root.style.setProperty('--primary', data.colorPrimario);

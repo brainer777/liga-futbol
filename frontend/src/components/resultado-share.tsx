@@ -155,8 +155,18 @@ const Card = React.forwardRef<
   );
 });
 
-export function ResultadoShareModal({ data, onClose }: { data: ResultadoShareData; onClose: () => void }) {
-  const { data: branding } = useBranding();
+export function ResultadoShareModal({
+  data,
+  onClose,
+  ligaSlug,
+}: {
+  data: ResultadoShareData;
+  onClose: () => void;
+  ligaSlug?: string;
+}) {
+  // El modal vive en el portal público /publico/:slug → usamos ese slug para que
+  // el branding de la imagen sea el de la liga correcta bajo multi-liga.
+  const { data: branding } = useBranding(ligaSlug);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [formato, setFormato] = React.useState<Formato>('post');
   const [localSrc, setLocalSrc] = React.useState<string | null>(null);

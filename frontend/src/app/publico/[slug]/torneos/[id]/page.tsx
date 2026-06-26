@@ -158,7 +158,7 @@ export default function TorneoPublicoPage() {
         />
       )}
 
-      {shareFor && <ResultadoShareModal data={shareFor} onClose={() => setShareFor(null)} />}
+      {shareFor && <ResultadoShareModal data={shareFor} ligaSlug={slug} onClose={() => setShareFor(null)} />}
     </div>
   );
 }

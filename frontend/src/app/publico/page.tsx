@@ -21,7 +21,10 @@ export default function PublicoIndexPage() {
     if (branding?.slug) router.replace(`/publico/${branding.slug}`);
   }, [branding?.slug, router]);
 
-  if (isError) {
+  // Con 1 liga el backend devuelve su slug → redirige arriba. Con 2+ ligas
+  // devuelve slug null (branding tolerante): no hay liga única, mostramos el
+  // aviso (los enlaces públicos llevan el slug). `isError` cubre fallos de red.
+  if (isError || (branding && !branding.slug)) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
         <div className="max-w-md space-y-2">
