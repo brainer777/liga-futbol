@@ -41,7 +41,7 @@ export class AuthService {
         id: usuario.id,
         nombre: usuario.nombre,
         email: usuario.email,
-        roles: usuario.roles.map((ur) => ({ id: ur.rol.id, nombre: ur.rol.nombre })),
+        roles: usuario.roles.map((ur) => ({ id: ur.rol.id, nombre: ur.rol.nombre, ligaId: ur.ligaId })),
       },
     };
   }
@@ -57,7 +57,7 @@ export class AuthService {
       nombre: usuario.nombre,
       email: usuario.email,
       estado: usuario.estado,
-      roles: usuario.roles.map((ur) => ({ id: ur.rol.id, nombre: ur.rol.nombre })),
+      roles: usuario.roles.map((ur) => ({ id: ur.rol.id, nombre: ur.rol.nombre, ligaId: ur.ligaId })),
       createdAt: usuario.createdAt,
     };
   }

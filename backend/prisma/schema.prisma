@@ -171,18 +171,25 @@ model Permiso {
   @@map("permisos")
 }
 
+// Multi-liga (fase 3a): cada asignación de rol se ancla a una liga.
+// `ligaId` null = rol de PLATAFORMA (p.ej. Superadministrador, cross-liga);
+// con valor = rol acotado a esa liga. El unique pasa a incluir ligaId para que
+// un usuario pueda tener el mismo rol en varias ligas.
 model UsuarioRol {
   id        String   @id @default(uuid()) @db.Uuid
   usuarioId String   @map("usuario_id") @db.Uuid
   rolId     String   @map("rol_id") @db.Uuid
+  ligaId    String?  @map("liga_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  liga    Liga?   @relation(fields: [ligaId], references: [id], onDelete: Cascade)
 
-  @@unique([usuarioId, rolId])
+  @@unique([usuarioId, rolId, ligaId])
   @@index([usuarioId])
   @@index([rolId])
+  @@index([ligaId])
   @@map("usuario_roles")
 }
 
@@ -811,6 +818,7 @@ model Liga {
 
   configuracion Configuracion?
 
+  usuarioRoles            UsuarioRol[]
   temporadas              Temporada[]
   clubes                  Club[]
   equipos                 Equipo[]
