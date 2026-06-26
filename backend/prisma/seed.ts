@@ -70,10 +70,13 @@ async function main() {
   // Categorías
   // Multi-liga: `nombre` ya no es único global (ahora @@unique([ligaId, nombre])),
   // así que el upsert-by-nombre se reemplaza por findFirst + create/update idempotente.
+  // Este seed usa un PrismaClient propio (sin el enforcement del middleware), así
+  // que debe setear `ligaId` explícitamente (la liga "principal" la crea la
+  // migración de fase 1 antes de que corra el seed).
   for (const c of CATEGORIAS) {
     const existing = await prisma.categoria.findFirst({ where: { nombre: c.nombre } });
     if (existing) await prisma.categoria.update({ where: { id: existing.id }, data: c });
-    else await prisma.categoria.create({ data: c });
+    else await prisma.categoria.create({ data: { ...c, liga: { connect: { slug: 'principal' } } } });
   }
   console.log(`✅ ${CATEGORIAS.length} categorías listas`);
 
@@ -88,6 +91,7 @@ async function main() {
         fechaInicio: new Date(`${anio}-01-01`),
         fechaFin: new Date(`${anio}-12-31`),
         estado: 'activa',
+        liga: { connect: { slug: 'principal' } },
       },
     });
     console.log(`✅ Temporada ${anio} creada`);
