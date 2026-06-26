@@ -64,14 +64,18 @@ export class UsuariosService {
 
     if (dto.roles) {
       // Resolvemos ANTES de borrar, así una asignación inválida no deja al
-      // usuario sin roles.
+      // usuario sin roles. El reemplazo (borrar + recrear) va en una transacción
+      // para que un error en el createMany no deje al usuario sin roles.
       const resolved = dto.roles.length ? await this.resolveRoles(dto.roles) : [];
-      await this.prisma.usuarioRol.deleteMany({ where: { usuarioId: id } });
+      const ops: any[] = [this.prisma.usuarioRol.deleteMany({ where: { usuarioId: id } })];
       if (resolved.length) {
-        await this.prisma.usuarioRol.createMany({
-          data: resolved.map((r) => ({ usuarioId: id, rolId: r.rolId, ligaId: r.ligaId })),
-        });
+        ops.push(
+          this.prisma.usuarioRol.createMany({
+            data: resolved.map((r) => ({ usuarioId: id, rolId: r.rolId, ligaId: r.ligaId })),
+          }),
+        );
       }
+      await this.prisma.$transaction(ops);
     }
 
     const u = await this.prisma.usuario.update({
