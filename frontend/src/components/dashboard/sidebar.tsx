@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
+import { useLigaStore, type LigaResumen } from '@/store/liga.store';
+import { api } from '@/lib/api';
 import { useBranding, fileUrl } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import {
@@ -26,6 +29,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { LigaSelector } from '@/components/dashboard/liga-selector';
 
 const navItems = [
   { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
@@ -62,15 +66,26 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const { data: branding } = useBranding();
+  const activeSlug = useLigaStore((s) => s.activeSlug);
+  const { data: branding } = useBranding(activeSlug ?? undefined);
+  const { data: misLigas = [] } = useQuery<LigaResumen[]>({
+    queryKey: ['mis-ligas'],
+    queryFn: () => api.get('/auth/mis-ligas').then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+  const activeLigaId = misLigas.find((l) => l.slug === activeSlug)?.id ?? null;
 
   const onLogout = () => {
     logout();
     router.push('/login');
   };
 
-  const isAdmin = !!user?.roles.some((r) => ROLES_ADMIN.includes(r.nombre));
-  const isSuperadmin = !!user?.roles.some((r) => r.nombre === 'Superadministrador');
+  // Gating por LIGA ACTIVA (espeja al RolesGuard): un rol de plataforma (ligaId
+  // null, p.ej. Superadministrador) vale en cualquier liga; uno de liga, solo en
+  // la suya. Así, ser Admin en la liga A no muestra el menú admin estando en B.
+  const rolesEnLiga = (user?.roles ?? []).filter((r) => r.ligaId == null || r.ligaId === activeLigaId);
+  const isAdmin = rolesEnLiga.some((r) => ROLES_ADMIN.includes(r.nombre));
+  const isSuperadmin = rolesEnLiga.some((r) => r.nombre === 'Superadministrador');
 
   const renderItem = (item: {
     href: string;
@@ -115,6 +130,8 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+
+      <LigaSelector />
 
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map(renderItem)}
