@@ -6,6 +6,19 @@ import { CreateLigaDto, UpdateLigaDto } from './dto/ligas.dto';
 // y con ConfiguracionService.DEFAULTS).
 const COLOR_DEFAULT = '142 70% 35%';
 
+// Categorías por defecto al crear una liga (mismas que el seed base), para que la
+// liga nueva quede usable de inmediato (sin esto no puede hostear torneos).
+const CATEGORIAS_DEFAULT = [
+  { nombre: 'Sub8', edadMinima: 6, edadMaxima: 8, permiteSinCedula: true, validaPorAnioNacimiento: true },
+  { nombre: 'Sub10', edadMinima: 8, edadMaxima: 10, permiteSinCedula: true, validaPorAnioNacimiento: true },
+  { nombre: 'Sub12', edadMinima: 10, edadMaxima: 12, permiteSinCedula: true, validaPorAnioNacimiento: true },
+  { nombre: 'Sub14', edadMinima: 12, edadMaxima: 14, permiteSinCedula: false, validaPorAnioNacimiento: false },
+  { nombre: 'Sub16', edadMinima: 14, edadMaxima: 16, permiteSinCedula: false, validaPorAnioNacimiento: false },
+  { nombre: 'Sub18', edadMinima: 16, edadMaxima: 18, permiteSinCedula: false, validaPorAnioNacimiento: false },
+  { nombre: 'Libre', edadMinima: 18, edadMaxima: 35, permiteSinCedula: false, validaPorAnioNacimiento: false },
+  { nombre: 'Master', edadMinima: 35, edadMaxima: 99, permiteSinCedula: false, validaPorAnioNacimiento: false },
+];
+
 /**
  * CRUD de ligas para la PLATAFORMA (Superadministrador). `Liga` está fuera del
  * enforcement de tenant (no está en TENANT_MODELS), así que estas queries no
@@ -33,16 +46,32 @@ export class LigasService {
     const existente = await this.prisma.liga.findUnique({ where: { slug: dto.slug }, select: { id: true } });
     if (existente) throw new ConflictException(`Ya existe una liga con el slug "${dto.slug}".`);
 
-    // Crea la liga y su Configuracion (1:1) en una sola operación anidada. El
-    // middleware $use solo intercepta el modelo top-level (Liga, no-tenant), así
-    // que el create anidado de Configuracion no se scopea ni hace fail-closed.
+    // Crea la liga con su Configuracion, las categorías por defecto y una
+    // temporada del año en curso, todo en una operación anidada. El middleware
+    // $use solo intercepta el modelo top-level (Liga, no-tenant), así que los
+    // creates anidados (que SÍ son tenant) no se scopean ni hacen fail-closed:
+    // su ligaId lo fija la relación. Así la liga nueva queda lista para usar.
+    const anio = new Date().getFullYear();
     return this.prisma.liga.create({
       data: {
         nombre: dto.nombre,
         slug: dto.slug,
         configuracion: { create: { nombreLiga: dto.nombre, colorPrimario: COLOR_DEFAULT } },
+        categorias: { create: CATEGORIAS_DEFAULT },
+        temporadas: {
+          create: {
+            nombre: `Temporada ${anio}`,
+            anio,
+            fechaInicio: new Date(`${anio}-01-01`),
+            fechaFin: new Date(`${anio}-12-31`),
+            estado: 'activa',
+          },
+        },
       },
-      include: { configuracion: { select: { nombreLiga: true, colorPrimario: true } } },
+      include: {
+        configuracion: { select: { nombreLiga: true, colorPrimario: true } },
+        _count: { select: { categorias: true, temporadas: true } },
+      },
     });
   }
 

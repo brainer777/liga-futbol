@@ -20,8 +20,10 @@ export class TemporadasService {
     if (new Date(dto.fechaInicio) >= new Date(dto.fechaFin)) {
       throw new BadRequestException('fechaInicio debe ser anterior a fechaFin');
     }
-    const exists = await this.prisma.temporada.findUnique({
-      where: { anio_nombre: { anio: dto.anio, nombre: dto.nombre } },
+    // El unique pasó a ser per-liga ([ligaId, anio, nombre]); el chequeo de
+    // duplicado va con findFirst y el middleware de tenant lo acota a la liga.
+    const exists = await this.prisma.temporada.findFirst({
+      where: { anio: dto.anio, nombre: dto.nombre },
     });
     if (exists) throw new ConflictException(`Ya existe la temporada "${dto.nombre}" ${dto.anio}`);
     return this.prisma.temporada.create({

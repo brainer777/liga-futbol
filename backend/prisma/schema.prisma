@@ -237,7 +237,9 @@ model Temporada {
   ligaId String? @map("liga_id") @db.Uuid
   liga   Liga?   @relation(fields: [ligaId], references: [id], onDelete: Cascade)
 
-  @@unique([anio, nombre])
+  // Multi-liga: el unique de (anio, nombre) pasa a ser por-liga (como categorías),
+  // si no, dos ligas no podrían tener ambas su "Temporada 2026".
+  @@unique([ligaId, anio, nombre])
   @@index([ligaId])
   @@map("temporadas")
 }
