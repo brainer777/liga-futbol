@@ -27,6 +27,7 @@ import {
   Globe,
   Flag,
   MapPin,
+  Network,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LigaSelector } from '@/components/dashboard/liga-selector';
@@ -55,8 +56,9 @@ const adminNavItems = [
   { href: '/dashboard/auditoria', label: 'Auditoría', icon: ScrollText },
 ];
 
-// Solo Superadministrador (mismo gate que el backend de /configuracion).
+// Solo Superadministrador (mismo gate que el backend de /configuracion y /ligas).
 const superadminNavItems = [
+  { href: '/dashboard/ligas', label: 'Ligas', icon: Network },
   { href: '/dashboard/apariencia', label: 'Apariencia', icon: Palette },
 ];
 
