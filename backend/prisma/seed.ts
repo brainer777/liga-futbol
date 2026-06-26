@@ -68,12 +68,12 @@ async function main() {
   console.log(`✅ ${PERMISOS.length} permisos listos`);
 
   // Categorías
+  // Multi-liga: `nombre` ya no es único global (ahora @@unique([ligaId, nombre])),
+  // así que el upsert-by-nombre se reemplaza por findFirst + create/update idempotente.
   for (const c of CATEGORIAS) {
-    await prisma.categoria.upsert({
-      where: { nombre: c.nombre },
-      update: c,
-      create: c,
-    });
+    const existing = await prisma.categoria.findFirst({ where: { nombre: c.nombre } });
+    if (existing) await prisma.categoria.update({ where: { id: existing.id }, data: c });
+    else await prisma.categoria.create({ data: c });
   }
   console.log(`✅ ${CATEGORIAS.length} categorías listas`);
 

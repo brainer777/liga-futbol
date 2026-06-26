@@ -23,7 +23,9 @@ export class CategoriasService {
     if (dto.edadMinima != null && dto.edadMaxima != null && dto.edadMinima > dto.edadMaxima) {
       throw new BadRequestException('edadMinima no puede ser mayor que edadMaxima');
     }
-    const exists = await this.prisma.categoria.findUnique({ where: { nombre: dto.nombre } });
+    // Multi-liga: `nombre` dejó de ser único global (ahora @@unique([ligaId, nombre])).
+    // El contexto de tenant llega en fase 3; por ahora se conserva el chequeo por nombre.
+    const exists = await this.prisma.categoria.findFirst({ where: { nombre: dto.nombre } });
     if (exists) throw new ConflictException(`Ya existe la categoría "${dto.nombre}"`);
     return this.prisma.categoria.create({ data: dto });
   }
