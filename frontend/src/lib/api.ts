@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { useAuthStore } from '@/store/auth.store';
+import { useLigaStore } from '@/store/liga.store';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -14,6 +15,17 @@ api.interceptors.request.use((config) => {
     if (token) {
       config.headers = config.headers || {};
       (config.headers as any).Authorization = `Bearer ${token}`;
+
+      // Liga activa del dashboard → X-Liga-Slug, SOLO en requests de datos.
+      // Se excluye /publico/* (esas resuelven su liga por el slug de la URL, vía
+      // ligaHeader explícito) para no contaminar el portal público si un admin
+      // logueado lo visita. No pisa un header ya puesto explícitamente.
+      const url = config.url ?? '';
+      const activeSlug = useLigaStore.getState().activeSlug;
+      const yaTieneSlug = !!(config.headers as any)['X-Liga-Slug'];
+      if (activeSlug && !yaTieneSlug && !url.startsWith('/publico')) {
+        (config.headers as any)['X-Liga-Slug'] = activeSlug;
+      }
     }
   }
   return config;

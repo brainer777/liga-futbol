@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api, getApiErrorMessage, downloadFile } from '@/lib/api';
 import { useBranding } from '@/lib/branding';
+import { useLigaStore } from '@/store/liga.store';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,8 +83,9 @@ export default function TorneoDetallePage() {
   const router = useRouter();
   const qc = useQueryClient();
   const id = params?.id as string;
-  // Slug de la liga para la vista pública imprimible (las rutas /publico llevan slug).
-  const { data: branding } = useBranding();
+  // Slug de la liga activa para la vista pública imprimible (las rutas /publico llevan slug).
+  const activeSlug = useLigaStore((s) => s.activeSlug);
+  const { data: branding } = useBranding(activeSlug ?? undefined);
   const reporteHref = branding?.slug ? `/publico/${branding.slug}/torneos/${id}/reporte` : '/publico';
   const [generarOpen, setGenerarOpen] = React.useState(false);
   const [reprogramarFor, setReprogramarFor] = React.useState<Partido | null>(null);

@@ -2,8 +2,9 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useLigaStore } from './liga.store';
 
-export type Rol = { id: string; nombre: string };
+export type Rol = { id: string; nombre: string; ligaId: string | null };
 export type AuthUser = {
   id: string;
   nombre: string;
@@ -26,7 +27,10 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       setAuth: (token, user) => set({ accessToken: token, user }),
       setUser: (user) => set({ user }),
-      logout: () => set({ accessToken: null, user: null }),
+      logout: () => {
+        set({ accessToken: null, user: null });
+        useLigaStore.getState().reset(); // no arrastrar la liga activa al próximo usuario
+      },
     }),
     {
       name: 'liga-futbol-auth',

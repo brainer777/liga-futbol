@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Palette, Upload, Check } from 'lucide-react';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
+import { useLigaStore } from '@/store/liga.store';
 import { useBranding, fileUrl, hexToHslTriple, hslTripleToHex } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export default function AparienciaPage() {
   const qc = useQueryClient();
   const { user } = useAuthStore();
-  const { data: branding } = useBranding();
+  const activeSlug = useLigaStore((s) => s.activeSlug);
+  const { data: branding } = useBranding(activeSlug ?? undefined);
 
   const isSuperadmin = !!user?.roles.some((r) => r.nombre === 'Superadministrador');
 
