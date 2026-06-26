@@ -1,16 +1,19 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PublicoService } from './publico.service';
 import { EstadisticasQueryDto } from '../estadisticas/dto/estadisticas.dto';
+import { TenantResolveGuard } from '../tenant/tenant-resolve.guard';
 
 /**
- * Endpoints PÚBLICOS (sin guards ni autenticación).
+ * Endpoints PÚBLICOS (sin autenticación). NO usan JwtAuthGuard: cualquiera puede
+ * consultar resultados, tabla y fixture (proyectados a campos seguros).
  *
- * A diferencia del resto de controllers, este NO usa JwtAuthGuard: cualquiera
- * puede consultar resultados, tabla y fixture. Todo lo que devuelve está
- * proyectado a campos seguros en PublicoService.
+ * Sí llevan TenantResolveGuard: resuelve la liga (header X-Liga-Slug o fallback)
+ * y la deja en el contexto para que el enforcement de Prisma acote las queries
+ * a esa liga. No valida membresía (no hay usuario).
  */
 @ApiTags('publico')
+@UseGuards(TenantResolveGuard)
 @Controller('publico')
 export class PublicoController {
   constructor(private readonly service: PublicoService) {}

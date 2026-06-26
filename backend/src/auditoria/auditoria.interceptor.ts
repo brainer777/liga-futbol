@@ -1,6 +1,7 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { ClsService } from 'nestjs-cls';
 import { AuditoriaService } from './auditoria.service';
 
 const METODOS_MUTACION = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
@@ -18,7 +19,10 @@ const RUTAS_EXCLUIDAS = ['/auth/login', '/health'];
  */
 @Injectable()
 export class AuditoriaInterceptor implements NestInterceptor {
-  constructor(private readonly auditoria: AuditoriaService) {}
+  constructor(
+    private readonly auditoria: AuditoriaService,
+    private readonly cls: ClsService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest();
@@ -37,6 +41,8 @@ export class AuditoriaInterceptor implements NestInterceptor {
       entidad: this.extraerEntidad(ruta),
       entidadIdParam: (req.params?.id as string) ?? null,
       ip: this.extraerIp(req),
+      // ligaId best-effort: seteado si un guard ya resolvió la liga del request.
+      ligaId: (this.cls.isActive() ? this.cls.get<string | undefined>('ligaId') : undefined) ?? null,
     };
 
     return next.handle().pipe(
@@ -58,6 +64,7 @@ export class AuditoriaInterceptor implements NestInterceptor {
               statusCode,
               exitoso: true,
               ip: base.ip,
+              ligaId: base.ligaId,
             })
             .catch(() => {});
         },
@@ -74,6 +81,7 @@ export class AuditoriaInterceptor implements NestInterceptor {
               statusCode,
               exitoso: false,
               ip: base.ip,
+              ligaId: base.ligaId,
             })
             .catch(() => {});
         },

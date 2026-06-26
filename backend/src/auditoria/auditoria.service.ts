@@ -11,6 +11,7 @@ export interface RegistroAuditoria {
   statusCode: number;
   exitoso: boolean;
   ip?: string | null;
+  ligaId?: string | null;
 }
 
 @Injectable()

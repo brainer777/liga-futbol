@@ -50,4 +50,19 @@ export class TenantContextService {
     this.cls.set('ligaId', ligaId);
     return ligaId;
   }
+
+  /**
+   * Ejecuta `fn` SIN scoping de tenant (el enforcement de Prisma se saltea).
+   * Único punto de bypass permitido — para vistas cross-liga de plataforma o
+   * tareas de sistema. Nunca setear el flag a mano en código de negocio.
+   */
+  async runUnscoped<T>(fn: () => Promise<T>): Promise<T> {
+    const prev = this.cls.get('tenantBypass');
+    this.cls.set('tenantBypass', true);
+    try {
+      return await fn();
+    } finally {
+      this.cls.set('tenantBypass', prev ?? false);
+    }
+  }
 }
