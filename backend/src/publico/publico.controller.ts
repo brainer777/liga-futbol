@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { PublicoService } from './publico.service';
 import { EstadisticasQueryDto } from '../estadisticas/dto/estadisticas.dto';
 import { TenantResolveGuard } from '../tenant/tenant-resolve.guard';
+import { SoftTenant } from '../tenant/soft-tenant.decorator';
 
 /**
  * Endpoints PÚBLICOS (sin autenticación). NO usan JwtAuthGuard: cualquiera puede
@@ -18,7 +19,10 @@ import { TenantResolveGuard } from '../tenant/tenant-resolve.guard';
 export class PublicoController {
   constructor(private readonly service: PublicoService) {}
 
+  // Branding tolerante: sin slug + 2+ ligas no rompe (devuelve defaults), así el
+  // login y el provider global no fail-closean. Slug inexistente sigue 404.
   @Get('configuracion')
+  @SoftTenant()
   configuracion() {
     return this.service.configuracionPublica();
   }

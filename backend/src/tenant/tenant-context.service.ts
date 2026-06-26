@@ -22,32 +22,43 @@ export class TenantContextService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async getLigaId(): Promise<string> {
+  /**
+   * Resuelve la liga del request SIN fail-closed: devuelve null cuando no se
+   * puede resolver por ausencia de contexto (sin slug y con 2+ ligas). Un slug
+   * EXPLÍCITO inexistente SÍ es error (404): no se enmascara una URL mal escrita.
+   * Para endpoints tolerantes (p.ej. branding público), que prefieren defaults a
+   * romper. El resto debe usar `getLigaId()` (fail-closed).
+   */
+  async tryGetLigaId(): Promise<string | null> {
     const cached = this.cls.get<string | undefined>('ligaId');
     if (cached) return cached;
 
     const slug = this.cls.get<string | null>('ligaSlug');
-    let ligaId: string;
-
     if (slug) {
       const liga = await this.prisma.liga.findFirst({
         where: { slug, estado: 'activo' },
         select: { id: true },
       });
       if (!liga) throw new NotFoundException(`Liga "${slug}" no encontrada`);
-      ligaId = liga.id;
-    } else {
-      const ligas = await this.prisma.liga.findMany({ take: 2, select: { id: true } });
-      if (ligas.length === 1) {
-        ligaId = ligas[0].id;
-      } else {
-        throw new BadRequestException(
-          'Falta el encabezado X-Liga-Slug: hay múltiples ligas y no se puede resolver el contexto.',
-        );
-      }
+      this.cls.set('ligaId', liga.id);
+      return liga.id;
     }
 
-    this.cls.set('ligaId', ligaId);
+    const ligas = await this.prisma.liga.findMany({ take: 2, select: { id: true } });
+    if (ligas.length === 1) {
+      this.cls.set('ligaId', ligas[0].id);
+      return ligas[0].id;
+    }
+    return null; // sin slug y con 2+ ligas: no resoluble (lo decide el caller)
+  }
+
+  async getLigaId(): Promise<string> {
+    const ligaId = await this.tryGetLigaId();
+    if (!ligaId) {
+      throw new BadRequestException(
+        'Falta el encabezado X-Liga-Slug: hay múltiples ligas y no se puede resolver el contexto.',
+      );
+    }
     return ligaId;
   }
 

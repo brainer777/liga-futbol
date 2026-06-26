@@ -32,7 +32,21 @@ export class ConfiguracionService {
 
   /** Campos seguros para consumo PÚBLICO (login y portal, sin auth). */
   async getPublic() {
-    const ligaId = await this.tenant.getLigaId();
+    // Tolerante: sin liga resoluble (sin slug + 2+ ligas) devolvemos branding por
+    // defecto con slug null en vez de fail-closed. El frontend usa ese slug null
+    // para login/provider global (defaults) y para la página /publico pelada
+    // ("Indicá tu liga"). El BrandingProvider solo aplica si hay slug → sin slug
+    // no pisa el branding por-liga del dashboard/portal.
+    const ligaId = await this.tenant.tryGetLigaId();
+    if (!ligaId) {
+      return {
+        slug: null,
+        nombreLiga: DEFAULTS.nombreLiga,
+        logoUrl: DEFAULTS.logoUrl,
+        faviconUrl: DEFAULTS.faviconUrl,
+        colorPrimario: DEFAULTS.colorPrimario,
+      };
+    }
     const [row, liga] = await Promise.all([
       this.prisma.configuracion.findUnique({ where: { ligaId } }),
       // `Liga` queda fuera del enforcement de tenant; lookup directo por id.
