@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ListChecks, Target, AlertTriangle, CalendarDays, Printer, Share2, MapPin, Flag, Building2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, ligaHeader } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ResultadoShareModal, ResultadoShareData } from '@/components/resultado-share';
@@ -49,36 +49,37 @@ function equipoLabel(e: EquipoSeguro): string {
 }
 
 export default function TorneoPublicoPage() {
-  const params = useParams<{ id: string }>();
-  const id = params.id;
+  const params = useParams<{ slug: string; id: string }>();
+  const { slug, id } = params;
+  const cfg = ligaHeader(slug);
   const [tab, setTab] = React.useState<TabKey>('tabla');
   const [shareFor, setShareFor] = React.useState<ResultadoShareData | null>(null);
 
   const torneo = useQuery<Torneo>({
-    queryKey: ['publico', 'torneo', id],
-    queryFn: () => api.get(`/publico/torneos/${id}`).then((r) => r.data),
+    queryKey: ['publico', slug, 'torneo', id],
+    queryFn: () => api.get(`/publico/torneos/${id}`, cfg).then((r) => r.data),
   });
   const tabla = useQuery<FilaTabla[]>({
-    queryKey: ['publico', 'tabla', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/tabla`).then((r) => r.data),
+    queryKey: ['publico', slug, 'tabla', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/tabla`, cfg).then((r) => r.data),
   });
   const goleadores = useQuery<Goleador[]>({
-    queryKey: ['publico', 'goleadores', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/goleadores`).then((r) => r.data),
+    queryKey: ['publico', slug, 'goleadores', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/goleadores`, cfg).then((r) => r.data),
   });
   const tarjetas = useQuery<Tarjeta[]>({
-    queryKey: ['publico', 'tarjetas', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/tarjetas`).then((r) => r.data),
+    queryKey: ['publico', slug, 'tarjetas', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/tarjetas`, cfg).then((r) => r.data),
   });
   const fixture = useQuery<Partido[]>({
-    queryKey: ['publico', 'fixture', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/fixture`).then((r) => r.data),
+    queryKey: ['publico', slug, 'fixture', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/fixture`, cfg).then((r) => r.data),
   });
 
   if (torneo.isError) {
     return (
       <div className="space-y-4">
-        <Link href="/publico" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link href={`/publico/${slug}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Volver
         </Link>
         <Card><CardContent className="p-6 text-center text-muted-foreground">Torneo no disponible.</CardContent></Card>
@@ -88,7 +89,7 @@ export default function TorneoPublicoPage() {
 
   return (
     <div className="space-y-5">
-      <Link href="/publico" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href={`/publico/${slug}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Volver a torneos
       </Link>
 
@@ -100,7 +101,7 @@ export default function TorneoPublicoPage() {
           </p>
         </div>
         <Link
-          href={`/publico/torneos/${id}/reporte`}
+          href={`/publico/${slug}/torneos/${id}/reporte`}
           className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent shrink-0"
         >
           <Printer className="h-4 w-4" /> Reporte

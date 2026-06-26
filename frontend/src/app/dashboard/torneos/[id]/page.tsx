@@ -9,6 +9,7 @@ import {
   Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer, Swords, Flag, Building2, Settings2,
 } from 'lucide-react';
 import { api, getApiErrorMessage, downloadFile } from '@/lib/api';
+import { useBranding } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +82,9 @@ export default function TorneoDetallePage() {
   const router = useRouter();
   const qc = useQueryClient();
   const id = params?.id as string;
+  // Slug de la liga para la vista pública imprimible (las rutas /publico llevan slug).
+  const { data: branding } = useBranding();
+  const reporteHref = branding?.slug ? `/publico/${branding.slug}/torneos/${id}/reporte` : '/publico';
   const [generarOpen, setGenerarOpen] = React.useState(false);
   const [reprogramarFor, setReprogramarFor] = React.useState<Partido | null>(null);
   const [editarFor, setEditarFor] = React.useState<Partido | null>(null);
@@ -330,7 +334,7 @@ export default function TorneoDetallePage() {
             {r.label}
           </Button>
         ))}
-        <Link href={`/publico/torneos/${params.id}/reporte`} target="_blank" className="ml-auto">
+        <Link href={reporteHref} target="_blank" className="ml-auto">
           <Button variant="outline" size="sm">
             <Printer className="h-4 w-4" /> Vista imprimible (PDF)
           </Button>

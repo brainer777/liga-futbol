@@ -1,65 +1,42 @@
 'use client';
 
-import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { Trophy, ChevronRight } from 'lucide-react';
-import { api } from '@/lib/api';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { useBranding } from '@/lib/branding';
 
-type TorneoPublico = {
-  id: string;
-  nombre: string;
-  formato: string;
-  estado: string;
-  categoria: { id: string; nombre: string } | null;
-  temporada: { id: string; nombre: string; anio: number } | null;
-  _count: { partidos: number; inscripciones: number };
-};
+/**
+ * `/publico` sin slug. El portal público se sirve bajo `/publico/:slug/...`; esta
+ * página resuelve la liga por defecto y redirige a su slug.
+ *
+ * Sin slug, `/publico/configuracion` cae al fallback del backend: si hay UNA sola
+ * liga devuelve su slug → redirigimos. Con 2+ ligas el fallback da error
+ * (fail-closed) y no listamos ligas (los enlaces públicos llevan el slug); se
+ * muestra un aviso para que usen la URL de su liga.
+ */
+export default function PublicoIndexPage() {
+  const router = useRouter();
+  const { data: branding, isLoading, isError } = useBranding();
 
-export default function PortalPublicoPage() {
-  const { data: torneos = [], isLoading, isError } = useQuery<TorneoPublico[]>({
-    queryKey: ['publico', 'torneos'],
-    queryFn: () => api.get('/publico/torneos').then((r) => r.data),
-  });
+  React.useEffect(() => {
+    if (branding?.slug) router.replace(`/publico/${branding.slug}`);
+  }, [branding?.slug, router]);
+
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-center">
+        <div className="max-w-md space-y-2">
+          <h1 className="text-lg font-semibold">Indicá tu liga</h1>
+          <p className="text-sm text-muted-foreground">
+            Accedé al portal con el enlace de tu liga (<code>/publico/tu-liga</code>).
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Trophy className="h-6 w-6 text-primary" /> Torneos
-        </h1>
-        <p className="text-muted-foreground text-sm">Seguí los resultados, la tabla de posiciones y el fixture.</p>
-      </div>
-
-      {isLoading && <p className="text-muted-foreground text-sm">Cargando torneos…</p>}
-      {isError && <p className="text-destructive text-sm">No se pudieron cargar los torneos.</p>}
-      {!isLoading && !isError && torneos.length === 0 && (
-        <Card><CardContent className="p-6 text-center text-muted-foreground text-sm">Todavía no hay torneos publicados.</CardContent></Card>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {torneos.map((t) => (
-          <Link key={t.id} href={`/publico/torneos/${t.id}`}>
-            <Card className="hover:border-primary transition-colors h-full">
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-semibold truncate">{t.nombre}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {t.categoria?.nombre ?? '—'} · {t.temporada?.nombre ?? '—'}
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    <Badge variant="secondary">{t.formato.replace(/_/g, ' ')}</Badge>
-                    <Badge variant="outline">{t._count.inscripciones} equipos</Badge>
-                    <Badge variant="outline">{t._count.partidos} partidos</Badge>
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-6 text-sm text-muted-foreground">
+      {isLoading ? 'Cargando…' : 'Redirigiendo…'}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ListChecks, Target, AlertTriangle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, ligaHeader } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 
 type ClubSeguro = { nombre?: string; sigla?: string | null; logoUrl?: string | null } | null;
@@ -44,25 +44,36 @@ function jugadorLabel(j: Jugador): string {
  * endpoint lee:
  *  - `basePath`: prefijo de los endpoints (`/publico/estadisticas` o `/estadisticas`).
  *  - `scope`: namespace para el queryKey, así no se pisan las cachés entre ambos.
+ *  - `ligaSlug` (público): liga del portal; va en el header y en la queryKey. El
+ *    dashboard lo omite y resuelve la liga por fallback/auth.
  */
-export function EstadisticasGlobales({ basePath, scope }: { basePath: string; scope: string }) {
+export function EstadisticasGlobales({
+  basePath,
+  scope,
+  ligaSlug,
+}: {
+  basePath: string;
+  scope: string;
+  ligaSlug?: string;
+}) {
   const [tab, setTab] = React.useState<TabKey>('equipos');
+  const cfg = ligaHeader(ligaSlug);
 
   const resumen = useQuery<Resumen>({
-    queryKey: [scope, 'estadisticas', 'resumen'],
-    queryFn: () => api.get(`${basePath}/resumen`).then((r) => r.data),
+    queryKey: [scope, ligaSlug ?? null, 'estadisticas', 'resumen'],
+    queryFn: () => api.get(`${basePath}/resumen`, cfg).then((r) => r.data),
   });
   const equipos = useQuery<FilaEquipo[]>({
-    queryKey: [scope, 'estadisticas', 'equipos'],
-    queryFn: () => api.get(`${basePath}/equipos`).then((r) => r.data),
+    queryKey: [scope, ligaSlug ?? null, 'estadisticas', 'equipos'],
+    queryFn: () => api.get(`${basePath}/equipos`, cfg).then((r) => r.data),
   });
   const goleadores = useQuery<Goleador[]>({
-    queryKey: [scope, 'estadisticas', 'goleadores'],
-    queryFn: () => api.get(`${basePath}/goleadores`).then((r) => r.data),
+    queryKey: [scope, ligaSlug ?? null, 'estadisticas', 'goleadores'],
+    queryFn: () => api.get(`${basePath}/goleadores`, cfg).then((r) => r.data),
   });
   const tarjetas = useQuery<Tarjeta[]>({
-    queryKey: [scope, 'estadisticas', 'tarjetas'],
-    queryFn: () => api.get(`${basePath}/tarjetas`).then((r) => r.data),
+    queryKey: [scope, ligaSlug ?? null, 'estadisticas', 'tarjetas'],
+    queryFn: () => api.get(`${basePath}/tarjetas`, cfg).then((r) => r.data),
   });
 
   return (

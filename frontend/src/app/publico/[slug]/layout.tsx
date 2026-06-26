@@ -1,17 +1,23 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { LogIn } from 'lucide-react';
 import { useBranding, fileUrl } from '@/lib/branding';
+import { BrandingProvider } from '@/components/branding-provider';
 
 export default function PublicoLayout({ children }: { children: React.ReactNode }) {
-  const { data: branding } = useBranding();
+  const { slug } = useParams<{ slug: string }>();
+  const { data: branding } = useBranding(slug);
   const nombre = branding?.nombreLiga ?? 'Liga de Fútbol';
+  const base = `/publico/${slug}`;
   return (
     <div className="min-h-screen flex flex-col bg-muted/20">
+      {/* Color/favicon/título por-liga (resueltos por el slug de la URL). */}
+      <BrandingProvider slug={slug} />
       <header className="border-b bg-card print:hidden">
         <div className="max-w-5xl mx-auto w-full px-4 py-3 flex items-center justify-between">
-          <Link href="/publico" className="flex items-center gap-2 font-bold">
+          <Link href={base} className="flex items-center gap-2 font-bold">
             {branding?.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={fileUrl(branding.logoUrl)!} alt="" className="h-8 w-8 rounded-md object-contain" />
@@ -24,10 +30,10 @@ export default function PublicoLayout({ children }: { children: React.ReactNode 
             </span>
           </Link>
           <div className="flex items-center gap-1.5">
-            <Link href="/publico" className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
+            <Link href={base} className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
               Torneos
             </Link>
-            <Link href="/publico/estadisticas" className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
+            <Link href={`${base}/estadisticas`} className="rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
               Estadísticas
             </Link>
             <Link

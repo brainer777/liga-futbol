@@ -33,9 +33,14 @@ export class ConfiguracionService {
   /** Campos seguros para consumo PÚBLICO (login y portal, sin auth). */
   async getPublic() {
     const ligaId = await this.tenant.getLigaId();
-    const row = await this.prisma.configuracion.findUnique({ where: { ligaId } });
+    const [row, liga] = await Promise.all([
+      this.prisma.configuracion.findUnique({ where: { ligaId } }),
+      // `Liga` queda fuera del enforcement de tenant; lookup directo por id.
+      this.prisma.liga.findUnique({ where: { id: ligaId }, select: { slug: true } }),
+    ]);
     const src = row ?? DEFAULTS;
     return {
+      slug: liga?.slug ?? null,
       nombreLiga: src.nombreLiga,
       logoUrl: src.logoUrl,
       faviconUrl: src.faviconUrl,

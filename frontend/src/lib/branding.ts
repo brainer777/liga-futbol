@@ -1,9 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { api, ligaHeader } from './api';
 
 export type Branding = {
+  slug: string | null;
   nombreLiga: string;
   logoUrl: string | null;
   faviconUrl: string | null;
@@ -20,11 +21,16 @@ export function fileUrl(path?: string | null): string | null {
   return `${FILE_BASE}${path}`;
 }
 
-/** Branding público (nombre, logo, favicon, color). Cacheado; se invalida al guardar. */
-export function useBranding() {
+/**
+ * Branding público (nombre, logo, favicon, color, slug). Cacheado; se invalida al guardar.
+ * `slug`: en el portal público viene de la URL y acota la liga; el dashboard lo
+ * omite y resuelve por fallback/auth. Va en la queryKey para no compartir caché
+ * entre ligas.
+ */
+export function useBranding(slug?: string) {
   return useQuery<Branding>({
-    queryKey: ['branding'],
-    queryFn: () => api.get('/publico/configuracion').then((r) => r.data),
+    queryKey: ['branding', slug ?? null],
+    queryFn: () => api.get('/publico/configuracion', ligaHeader(slug)).then((r) => r.data),
     staleTime: 5 * 60_000,
   });
 }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Printer, ArrowLeft } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, ligaHeader } from '@/lib/api';
 
 type Equipo = { nombre: string } | null;
 type Torneo = { nombre: string; categoria: { nombre: string } | null; temporada: { nombre: string; anio: number } | null };
@@ -20,23 +20,24 @@ const jugadorLabel = (j: { nombres: string; apellidos: string } | null) =>
   j ? `${j.apellidos}, ${j.nombres}` : '—';
 
 export default function ReportePublicoPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug, id } = useParams<{ slug: string; id: string }>();
+  const cfg = ligaHeader(slug);
 
   const torneo = useQuery<Torneo>({
-    queryKey: ['publico', 'torneo', id],
-    queryFn: () => api.get(`/publico/torneos/${id}`).then((r) => r.data),
+    queryKey: ['publico', slug, 'torneo', id],
+    queryFn: () => api.get(`/publico/torneos/${id}`, cfg).then((r) => r.data),
   });
   const tabla = useQuery<FilaTabla[]>({
-    queryKey: ['publico', 'tabla', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/tabla`).then((r) => r.data),
+    queryKey: ['publico', slug, 'tabla', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/tabla`, cfg).then((r) => r.data),
   });
   const goleadores = useQuery<Goleador[]>({
-    queryKey: ['publico', 'goleadores', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/goleadores`).then((r) => r.data),
+    queryKey: ['publico', slug, 'goleadores', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/goleadores`, cfg).then((r) => r.data),
   });
   const tarjetas = useQuery<Tarjeta[]>({
-    queryKey: ['publico', 'tarjetas', id],
-    queryFn: () => api.get(`/publico/torneos/${id}/tarjetas`).then((r) => r.data),
+    queryKey: ['publico', slug, 'tarjetas', id],
+    queryFn: () => api.get(`/publico/torneos/${id}/tarjetas`, cfg).then((r) => r.data),
   });
 
   const cargando = torneo.isLoading || tabla.isLoading || goleadores.isLoading || tarjetas.isLoading;
@@ -45,7 +46,7 @@ export default function ReportePublicoPage() {
     <div className="space-y-6">
       {/* Barra de acciones (no se imprime) */}
       <div className="flex items-center justify-between print:hidden">
-        <Link href={`/publico/torneos/${id}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link href={`/publico/${slug}/torneos/${id}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Volver al torneo
         </Link>
         <button

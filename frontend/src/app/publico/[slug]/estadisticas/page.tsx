@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { EstadisticasGlobales } from '@/components/estadisticas-globales';
 
 export default function EstadisticasPublicasPage() {
+  const { slug } = useParams<{ slug: string }>();
   return (
     <div className="space-y-5">
-      <Link href="/publico" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link href={`/publico/${slug}`} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Volver a torneos
       </Link>
 
@@ -18,7 +20,7 @@ export default function EstadisticasPublicasPage() {
         <p className="text-muted-foreground text-sm">Acumulado histórico de toda la liga, sumando todos los torneos.</p>
       </div>
 
-      <EstadisticasGlobales basePath="/publico/estadisticas" scope="publico" />
+      <EstadisticasGlobales basePath="/publico/estadisticas" scope="publico" ligaSlug={slug} />
     </div>
   );
 }

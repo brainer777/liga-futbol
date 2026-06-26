@@ -10,9 +10,14 @@ import { useBranding, fileUrl } from '@/lib/branding';
  *   <html>; el estilo inline gana sobre :root y .dark, así que el color
  *   elegido manda en ambos temas.
  * - Setea el título de la pestaña y el favicon dinámico.
+ *
+ * `slug` (portal público): la liga viene de la URL `/publico/:slug`. Sin slug
+ * (dashboard/login) resuelve por fallback/auth. El layout público monta una 2ª
+ * instancia con su slug para que color/favicon/título sean por-liga incluso con
+ * múltiples ligas (donde el fetch sin slug es fail-closed y no aplica nada).
  */
-export function BrandingProvider() {
-  const { data } = useBranding();
+export function BrandingProvider({ slug }: { slug?: string } = {}) {
+  const { data } = useBranding(slug);
 
   useEffect(() => {
     if (!data) return;
@@ -21,7 +26,7 @@ export function BrandingProvider() {
       root.style.setProperty('--primary', data.colorPrimario);
       root.style.setProperty('--ring', data.colorPrimario);
     }
-    if (data.nombreLiga) document.title = `${data.nombreLiga} — Panel`;
+    if (data.nombreLiga) document.title = slug ? data.nombreLiga : `${data.nombreLiga} — Panel`;
     const href = fileUrl(data.faviconUrl);
     if (href) {
       let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
@@ -32,7 +37,7 @@ export function BrandingProvider() {
       }
       link.href = href;
     }
-  }, [data]);
+  }, [data, slug]);
 
   return null;
 }

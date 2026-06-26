@@ -34,6 +34,16 @@ api.interceptors.response.use(
 );
 
 /**
+ * Header de tenant para el portal PÚBLICO: la liga se resuelve por el slug de la
+ * URL (`/publico/:slug/...`), no por usuario. Se pasa explícito en cada request
+ * público — NO globalmente — para no filtrar el slug a las llamadas del dashboard
+ * (que comparten endpoints como `/publico/configuracion`).
+ */
+export function ligaHeader(slug?: string | null) {
+  return slug ? { headers: { 'X-Liga-Slug': slug } } : undefined;
+}
+
+/**
  * Descarga un archivo desde un endpoint autenticado: lo pide como blob (con el
  * token vía interceptor) y dispara la descarga en el navegador con `filename`.
  */
