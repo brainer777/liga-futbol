@@ -28,6 +28,14 @@ export class AuthController {
     return this.authService.getProfile(userId);
   }
 
+  @Get('mis-ligas')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Ligas a las que el usuario puede acceder (selector de liga activa)' })
+  misLigas(@CurrentUser('roles') roles: { ligaId: string | null }[]) {
+    return this.authService.misLigas(roles ?? []);
+  }
+
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

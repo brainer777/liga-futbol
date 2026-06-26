@@ -46,6 +46,28 @@ export class AuthService {
     };
   }
 
+  /**
+   * Ligas a las que el usuario puede acceder (para el selector del dashboard).
+   * Espeja la membresía del RolesGuard: un rol de plataforma (ligaId null, p.ej.
+   * Superadministrador) habilita TODAS las ligas; los demás, solo las de sus
+   * roles. `Liga` está fuera del enforcement de tenant, así que esta consulta no
+   * depende del header X-Liga-Slug.
+   */
+  async misLigas(roles: { ligaId: string | null }[]) {
+    const esPlataforma = roles.some((r) => r.ligaId == null);
+    const where = esPlataforma
+      ? { estado: 'activo' as const }
+      : {
+          estado: 'activo' as const,
+          id: { in: [...new Set(roles.map((r) => r.ligaId).filter((x): x is string => !!x))] },
+        };
+    return this.prisma.liga.findMany({
+      where,
+      select: { id: true, nombre: true, slug: true },
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
   async getProfile(userId: string) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: userId },
