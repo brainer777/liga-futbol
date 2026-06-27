@@ -26,7 +26,7 @@ export class ConfiguracionService {
     const row = await this.prisma.configuracion.findUnique({ where: { ligaId } });
     if (row) return row;
     return this.prisma.configuracion.create({
-      data: { ...DEFAULTS, liga: { connect: { id: ligaId } } },
+      data: { ...DEFAULTS, ligaId },
     });
   }
 
@@ -67,7 +67,7 @@ export class ConfiguracionService {
     return this.prisma.configuracion.upsert({
       where: { ligaId },
       update: { ...dto },
-      create: { ...DEFAULTS, ...dto, liga: { connect: { id: ligaId } } },
+      create: { ...DEFAULTS, ...dto, ligaId },
     });
   }
 
