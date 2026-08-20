@@ -27,6 +27,14 @@ export class PublicoController {
     return this.service.configuracionPublica();
   }
 
+  // No depende de la liga resuelta (Liga vive fuera del enforcement de tenant);
+  // @SoftTenant() solo evita el fail-closed del guard de clase con 2+ ligas.
+  @Get('ligas')
+  @SoftTenant()
+  ligas() {
+    return this.service.ligasPublicas();
+  }
+
   @Get('estadisticas/resumen')
   estadisticasResumen(@Query() q: EstadisticasQueryDto) {
     return this.service.estadisticasResumen(q);

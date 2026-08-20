@@ -34,6 +34,21 @@ export class PublicoService {
     return this.configuracion.getPublic();
   }
 
+  /** Ligas activas (nombre, slug, logo) para el selector de `/publico` con 2+ ligas. */
+  async ligasPublicas() {
+    const ligas = await this.prisma.liga.findMany({
+      where: { estado: 'activo' },
+      select: { nombre: true, slug: true, configuracion: { select: { logoUrl: true, colorPrimario: true } } },
+      orderBy: { nombre: 'asc' },
+    });
+    return ligas.map((l) => ({
+      nombre: l.nombre,
+      slug: l.slug,
+      logoUrl: l.configuracion?.logoUrl ?? null,
+      colorPrimario: l.configuracion?.colorPrimario ?? null,
+    }));
+  }
+
   // Estadísticas globales para el portal. EstadisticasService ya proyecta a
   // campos seguros (nombre/apellidos + equipo/club + números), así que se
   // exponen directamente.

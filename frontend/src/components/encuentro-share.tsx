@@ -6,93 +6,26 @@ import { Download, X, Loader2 } from 'lucide-react';
 import { useBranding, fileUrl } from '@/lib/branding';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import {
+  EquipoCard, Formato, FORMATOS, toDataUrl, Escudo, MarcoMiranda,
+} from './resultado-share';
 
-export type EquipoCard = {
-  nombre: string;
-  sigla?: string | null;
-  logoUrl?: string | null; // logo del equipo
-  clubLogoUrl?: string | null; // fallback: logo del club
-};
-
-export type ResultadoShareData = {
+export type EncuentroShareData = {
   local: EquipoCard;
   visitante: EquipoCard;
-  golesLocal: number;
-  golesVisitante: number;
   torneo: string;
   categoria?: string | null;
   fecha?: string | null;
+  hora?: string | null;
+  sede?: string | null;
   jornada?: number | null;
 };
 
-export type Formato = 'post' | 'historia';
-
-// Dimensiones y tamaños por formato. "post" = cuadrado feed; "historia" = vertical 9:16.
-export const FORMATOS: Record<Formato, { w: number; h: number; escudo: number; marcador: string; previewScale: number; label: string }> = {
-  post: { w: 1080, h: 1080, escudo: 150, marcador: 'text-[120px]', previewScale: 0.34, label: 'Post 1080×1080' },
-  historia: { w: 1080, h: 1920, escudo: 300, marcador: 'text-[200px]', previewScale: 0.2, label: 'Historia 1080×1920' },
-};
-
-/**
- * Convierte una URL de imagen a data URL para poder incrustarla en el PNG sin
- * que el canvas quede "tainted" por origen cruzado (los /uploads viven en la
- * API, otro origen que el front). Si falla (CORS / 404), devuelve null y la
- * tarjeta cae al placeholder con la inicial.
- */
-export async function toDataUrl(url: string | null): Promise<string | null> {
-  if (!url) return null;
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise((resolve) => {
-      const fr = new FileReader();
-      fr.onloadend = () => resolve(fr.result as string);
-      fr.onerror = () => resolve(null);
-      fr.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-}
-
-function inicial(e: EquipoCard): string {
-  return (e.sigla || e.nombre || '?').trim().slice(0, 3).toUpperCase();
-}
-
-// Colores del escudo de Miranda (rojo, amarillo, negro) para el marco.
-const MIRANDA = ['#CE1126', '#FCD116', '#111111'];
-
-export function MarcoMiranda({ pos }: { pos: 'top' | 'bottom' }) {
-  return (
-    <div className={cn('absolute left-0 right-0 flex', pos === 'top' ? 'top-0' : 'bottom-0')} style={{ height: 26 }}>
-      {MIRANDA.map((c) => (
-        <div key={c} className="flex-1" style={{ background: c }} />
-      ))}
-    </div>
-  );
-}
-
-export function Escudo({ src, e, size }: { src: string | null; e: EquipoCard; size: number }) {
-  if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" style={{ height: size, width: size }} className="object-contain" />;
-  }
-  return (
-    <div
-      style={{ height: size, width: size }}
-      className="rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-extrabold text-4xl"
-    >
-      {inicial(e)}
-    </div>
-  );
-}
-
-/** La tarjeta lista para redes (post cuadrado o historia 9:16). */
+/** Tarjeta de anuncio del próximo partido (sin marcador todavía). */
 const Card = React.forwardRef<
   HTMLDivElement,
   {
-    data: ResultadoShareData;
+    data: EncuentroShareData;
     formato: Formato;
     ligaNombre: string;
     ligaLogo: string | null;
@@ -115,38 +48,37 @@ const Card = React.forwardRef<
     >
       <MarcoMiranda pos="top" />
 
-      {/* Header: liga */}
       <div className="flex flex-col items-center gap-4">
         {ligaLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={ligaLogo} alt="" style={{ height: 110, width: 110 }} className="object-contain" />
         ) : null}
         <div className="text-3xl font-bold tracking-wide text-center">{ligaNombre}</div>
-        <div className="text-lg font-medium uppercase tracking-[0.3em] text-slate-400">Resultado final</div>
+        <div className="text-lg font-medium uppercase tracking-[0.3em] text-slate-400">Próximo partido</div>
       </div>
 
-      {/* Marcador */}
       <div className={cn('flex items-center justify-center w-full', formato === 'historia' ? 'gap-6' : 'gap-10')}>
         <div className="flex flex-col items-center gap-5 flex-1 min-w-0">
           <Escudo src={localSrc} e={data.local} size={f.escudo} />
           <div className="text-3xl font-bold text-center leading-tight line-clamp-2">{data.local.nombre}</div>
         </div>
-        <div className={cn('flex items-center gap-4 font-black leading-none tabular-nums', f.marcador)}>
-          <span>{data.golesLocal}</span>
-          <span className="text-slate-300 text-7xl">-</span>
-          <span>{data.golesVisitante}</span>
-        </div>
+        <div className="font-black leading-none text-slate-300 text-6xl">VS</div>
         <div className="flex flex-col items-center gap-5 flex-1 min-w-0">
           <Escudo src={visitanteSrc} e={data.visitante} size={f.escudo} />
           <div className="text-3xl font-bold text-center leading-tight line-clamp-2">{data.visitante.nombre}</div>
         </div>
       </div>
 
-      {/* Footer: torneo */}
-      <div className="flex flex-col items-center gap-1 text-center">
-        <div className="text-2xl font-semibold">{data.torneo}</div>
+      <div className="flex flex-col items-center gap-2 text-center">
+        {(fechaTxt || data.hora) && (
+          <div className="text-4xl font-bold">
+            {[fechaTxt, data.hora].filter(Boolean).join(' · ')}
+          </div>
+        )}
+        {data.sede && <div className="text-2xl text-slate-500">{data.sede}</div>}
+        <div className="text-2xl font-semibold mt-2">{data.torneo}</div>
         <div className="text-lg text-slate-500">
-          {[data.categoria, data.jornada != null ? `Fecha ${data.jornada}` : null, fechaTxt].filter(Boolean).join(' · ')}
+          {[data.categoria, data.jornada != null ? `Fecha ${data.jornada}` : null].filter(Boolean).join(' · ')}
         </div>
       </div>
 
@@ -155,17 +87,15 @@ const Card = React.forwardRef<
   );
 });
 
-export function ResultadoShareModal({
+export function EncuentroShareModal({
   data,
   onClose,
   ligaSlug,
 }: {
-  data: ResultadoShareData;
+  data: EncuentroShareData;
   onClose: () => void;
   ligaSlug?: string;
 }) {
-  // El modal vive en el portal público /publico/:slug → usamos ese slug para que
-  // el branding de la imagen sea el de la liga correcta bajo multi-liga.
   const { data: branding } = useBranding(ligaSlug);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [formato, setFormato] = React.useState<Formato>('post');
@@ -175,7 +105,6 @@ export function ResultadoShareModal({
   const [prep, setPrep] = React.useState(true);
   const [bajando, setBajando] = React.useState(false);
 
-  // Prefetch de logos → data URL (evita el canvas "tainted" al exportar).
   React.useEffect(() => {
     let vivo = true;
     (async () => {
@@ -200,7 +129,7 @@ export function ResultadoShareModal({
       const a = document.createElement('a');
       const slug = `${data.local.sigla || data.local.nombre}-${data.visitante.sigla || data.visitante.nombre}`
         .toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      a.download = `resultado-${slug}-${formato}.png`;
+      a.download = `encuentro-${slug}-${formato}.png`;
       a.href = url;
       a.click();
     } catch {
@@ -214,11 +143,10 @@ export function ResultadoShareModal({
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card rounded-lg p-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">Imagen para redes</h3>
+          <h3 className="font-semibold">Anuncio del próximo partido</h3>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
 
-        {/* Selector de formato */}
         <div className="flex gap-1 rounded-md border p-1 mb-3">
           {(Object.keys(FORMATOS) as Formato[]).map((k) => (
             <button
@@ -234,7 +162,6 @@ export function ResultadoShareModal({
           ))}
         </div>
 
-        {/* Preview: la tarjeta real mide w×h; se muestra escalada. El export apunta al nodo real, no al escalado. */}
         <div className="rounded-md border overflow-hidden bg-muted/30 flex items-center justify-center" style={{ height: 420 }}>
           <div style={{ width: f.w, height: f.h, transform: `scale(${f.previewScale})`, transformOrigin: 'center' }}>
             <Card

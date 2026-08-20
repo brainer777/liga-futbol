@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   Trophy, Users, Shield, Calendar, Hash, MapPin, Play, Pencil, Trash2, RefreshCw, Clock, FileText,
   Target, Award, AlertTriangle, ListChecks, ArrowLeft, Download, Printer, Swords, Flag, Building2, Settings2,
+  Share2,
 } from 'lucide-react';
 import { api, getApiErrorMessage, downloadFile } from '@/lib/api';
 import { useBranding } from '@/lib/branding';
@@ -16,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormModal, FieldDef } from '@/components/form-modal';
 import { ResultadoModal } from '@/components/dashboard/resultado-modal';
+import { ResultadoShareModal, ResultadoShareData } from '@/components/resultado-share';
+import { EncuentroShareModal, EncuentroShareData } from '@/components/encuentro-share';
 
 type Partido = {
   id: string;
@@ -51,7 +54,10 @@ type Torneo = {
   estado: string;
   temporada: { id: string; nombre: string; anio: number };
   categoria: { id: string; nombre: string };
-  inscripciones: { id: string; equipo: { id: string; nombre: string; club: { nombre: string } } }[];
+  inscripciones: {
+    id: string;
+    equipo: { id: string; nombre: string; logoUrl: string | null; club: { nombre: string; sigla: string | null; logoUrl: string | null } };
+  }[];
   fases: any[];
 };
 
@@ -93,6 +99,8 @@ export default function TorneoDetallePage() {
   const [resultadoFor, setResultadoFor] = React.useState<Partido | null>(null);
   const [avanzarOpen, setAvanzarOpen] = React.useState(false);
   const [ganadoresPick, setGanadoresPick] = React.useState<Record<string, string>>({});
+  const [shareFor, setShareFor] = React.useState<ResultadoShareData | null>(null);
+  const [shareEncuentroFor, setShareEncuentroFor] = React.useState<EncuentroShareData | null>(null);
 
   const { data: torneo, isLoading, refetch } = useQuery<Torneo>({
     queryKey: ['torneo', id],
@@ -578,6 +586,59 @@ export default function TorneoDetallePage() {
                                 <Target className="h-3 w-3" /> Resultado
                               </Button>
                             )}
+                            {p.resultado?.cerrado ? (
+                              <Button
+                                variant="outline" size="icon" title="Imagen del resultado para redes"
+                                onClick={() => setShareFor({
+                                  local: {
+                                    nombre: local?.nombre ?? 'Local',
+                                    sigla: local?.club?.sigla,
+                                    logoUrl: local?.logoUrl,
+                                    clubLogoUrl: local?.club?.logoUrl,
+                                  },
+                                  visitante: {
+                                    nombre: visitante?.nombre ?? 'Visitante',
+                                    sigla: visitante?.club?.sigla,
+                                    logoUrl: visitante?.logoUrl,
+                                    clubLogoUrl: visitante?.club?.logoUrl,
+                                  },
+                                  golesLocal: p.resultado!.golesLocal,
+                                  golesVisitante: p.resultado!.golesVisitante,
+                                  torneo: torneo.nombre,
+                                  categoria: torneo.categoria?.nombre,
+                                  fecha: p.fechaProgramada,
+                                  jornada: p.jornada,
+                                })}
+                              >
+                                <Share2 className="h-3 w-3" />
+                              </Button>
+                            ) : p.estado !== 'cancelado' && (
+                              <Button
+                                variant="outline" size="icon" title="Imagen para anunciar el próximo partido"
+                                onClick={() => setShareEncuentroFor({
+                                  local: {
+                                    nombre: local?.nombre ?? 'Local',
+                                    sigla: local?.club?.sigla,
+                                    logoUrl: local?.logoUrl,
+                                    clubLogoUrl: local?.club?.logoUrl,
+                                  },
+                                  visitante: {
+                                    nombre: visitante?.nombre ?? 'Visitante',
+                                    sigla: visitante?.club?.sigla,
+                                    logoUrl: visitante?.logoUrl,
+                                    clubLogoUrl: visitante?.club?.logoUrl,
+                                  },
+                                  torneo: torneo.nombre,
+                                  categoria: torneo.categoria?.nombre,
+                                  fecha: p.fechaProgramada,
+                                  hora: p.horaProgramada,
+                                  sede: p.sede?.nombre,
+                                  jornada: p.jornada,
+                                })}
+                              >
+                                <Share2 className="h-3 w-3" />
+                              </Button>
+                            )}
                             {p.estado !== 'cancelado' && (
                               <Button variant="ghost" size="icon" title="Asignar sede / árbitro" onClick={() => setEditarFor(p)}>
                                 <Settings2 className="h-3 w-3" />
@@ -766,6 +827,11 @@ export default function TorneoDetallePage() {
             qc.invalidateQueries({ queryKey: ['torneo', id] });
           }}
         />
+      )}
+
+      {shareFor && <ResultadoShareModal data={shareFor} ligaSlug={activeSlug ?? undefined} onClose={() => setShareFor(null)} />}
+      {shareEncuentroFor && (
+        <EncuentroShareModal data={shareEncuentroFor} ligaSlug={activeSlug ?? undefined} onClose={() => setShareEncuentroFor(null)} />
       )}
 
       {avanzarOpen && (

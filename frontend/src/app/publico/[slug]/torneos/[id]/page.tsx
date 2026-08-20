@@ -9,6 +9,7 @@ import { api, ligaHeader } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ResultadoShareModal, ResultadoShareData } from '@/components/resultado-share';
+import { EncuentroShareModal, EncuentroShareData } from '@/components/encuentro-share';
 
 type ClubSeguro = { nombre?: string; sigla?: string | null; logoUrl?: string | null } | null;
 type EquipoSeguro = { id?: string; nombre: string; logoUrl?: string | null; club?: ClubSeguro } | null;
@@ -54,6 +55,7 @@ export default function TorneoPublicoPage() {
   const cfg = ligaHeader(slug);
   const [tab, setTab] = React.useState<TabKey>('tabla');
   const [shareFor, setShareFor] = React.useState<ResultadoShareData | null>(null);
+  const [shareEncuentroFor, setShareEncuentroFor] = React.useState<EncuentroShareData | null>(null);
 
   const torneo = useQuery<Torneo>({
     queryKey: ['publico', slug, 'torneo', id],
@@ -133,7 +135,7 @@ export default function TorneoPublicoPage() {
       {tab === 'fixture' && (
         <FixtureView
           q={fixture}
-          onShare={(p) =>
+          onShareResultado={(p) =>
             setShareFor({
               local: {
                 nombre: p.equipoLocal?.nombre ?? 'Local',
@@ -155,10 +157,35 @@ export default function TorneoPublicoPage() {
               jornada: p.jornada,
             })
           }
+          onShareEncuentro={(p) =>
+            setShareEncuentroFor({
+              local: {
+                nombre: p.equipoLocal?.nombre ?? 'Local',
+                sigla: p.equipoLocal?.club?.sigla,
+                logoUrl: p.equipoLocal?.logoUrl,
+                clubLogoUrl: p.equipoLocal?.club?.logoUrl,
+              },
+              visitante: {
+                nombre: p.equipoVisitante?.nombre ?? 'Visitante',
+                sigla: p.equipoVisitante?.club?.sigla,
+                logoUrl: p.equipoVisitante?.logoUrl,
+                clubLogoUrl: p.equipoVisitante?.club?.logoUrl,
+              },
+              torneo: torneo.data?.nombre ?? 'Torneo',
+              categoria: torneo.data?.categoria?.nombre,
+              fecha: p.fechaProgramada,
+              hora: p.horaProgramada,
+              sede: p.sede?.nombre,
+              jornada: p.jornada,
+            })
+          }
         />
       )}
 
       {shareFor && <ResultadoShareModal data={shareFor} ligaSlug={slug} onClose={() => setShareFor(null)} />}
+      {shareEncuentroFor && (
+        <EncuentroShareModal data={shareEncuentroFor} ligaSlug={slug} onClose={() => setShareEncuentroFor(null)} />
+      )}
     </div>
   );
 }
@@ -253,7 +280,13 @@ function TarjetasView({ q }: { q: ReturnType<typeof useQuery<Tarjeta[]>> }) {
   );
 }
 
-function FixtureView({ q, onShare }: { q: ReturnType<typeof useQuery<Partido[]>>; onShare: (p: Partido) => void }) {
+function FixtureView({
+  q, onShareResultado, onShareEncuentro,
+}: {
+  q: ReturnType<typeof useQuery<Partido[]>>;
+  onShareResultado: (p: Partido) => void;
+  onShareEncuentro: (p: Partido) => void;
+}) {
   if (q.isLoading || q.isError || !q.data?.length) return <Estado q={q} vacio="Todavía no hay fixture generado." />;
   // Agrupar por jornada (o etapa eliminatoria)
   const grupos = new Map<string, Partido[]>();
@@ -282,13 +315,21 @@ function FixtureView({ q, onShare }: { q: ReturnType<typeof useQuery<Partido[]>>
                       <Badge variant={cerrado ? 'success' : 'secondary'} className="shrink-0">
                         {cerrado ? 'Final' : p.estado}
                       </Badge>
-                      {cerrado && p.resultado && (
+                      {cerrado && p.resultado ? (
                         <button
-                          onClick={() => onShare(p)}
-                          title="Imagen para redes"
+                          onClick={() => onShareResultado(p)}
+                          title="Imagen del resultado para redes"
                           className="shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent"
                         >
                           <Share2 className="h-3.5 w-3.5" /> Imagen
+                        </button>
+                      ) : p.estado !== 'cancelado' && (
+                        <button
+                          onClick={() => onShareEncuentro(p)}
+                          title="Imagen del próximo partido para redes"
+                          className="shrink-0 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-accent"
+                        >
+                          <Share2 className="h-3.5 w-3.5" /> Anunciar
                         </button>
                       )}
                     </div>
