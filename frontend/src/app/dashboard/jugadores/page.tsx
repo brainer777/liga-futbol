@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import {
-  Plus, Pencil, Trash2, Eye, Upload, FileText, Check, X, UserMinus,
+  Plus, Pencil, Trash2, Eye, Upload, FileText, Check, X, UserMinus, FileSpreadsheet, Download,
 } from 'lucide-react';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { fileUrl } from '@/lib/branding';
@@ -84,6 +84,7 @@ const estadoColor: Record<string, any> = {
 export default function JugadoresPage() {
   const qc = useQueryClient();
   const [open, setOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Jugador | null>(null);
   const [detail, setDetail] = React.useState<Jugador | null>(null);
   const [search, setSearch] = React.useState('');
@@ -269,9 +270,14 @@ export default function JugadoresPage() {
           <h1 className="text-2xl font-bold">Jugadores</h1>
           <p className="text-muted-foreground text-sm">Registro de jugadores con validación de edad y documentación.</p>
         </div>
-        <Button onClick={() => { setEditing(null); setOpen(true); }}>
-          <Plus className="h-4 w-4" /> Nuevo jugador
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileSpreadsheet className="h-4 w-4" /> Importar CSV
+          </Button>
+          <Button onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="h-4 w-4" /> Nuevo jugador
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
@@ -312,6 +318,13 @@ export default function JugadoresPage() {
           onClose={() => { setOpen(false); setEditing(null); }}
           onCreate={(payload) => create.mutateAsync(payload)}
           onUpdate={(id, payload) => update.mutateAsync({ id, data: payload })}
+        />
+      )}
+
+      {importOpen && (
+        <ImportarJugadoresModal
+          onClose={() => setImportOpen(false)}
+          onImported={() => { qc.invalidateQueries({ queryKey: ['jugadores'] }); setImportOpen(false); }}
         />
       )}
 
@@ -781,6 +794,251 @@ function AddToEquipoForm({ equipos, onAdd, loading }: { equipos: any[]; onAdd: (
         >
           {loading ? 'Agregando…' : 'Agregar a equipo'}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================
+// Importación masiva desde CSV
+// ============================
+
+const CSV_HEADERS = [
+  'club', 'categoria', 'nombres', 'apellidos', 'fechaNacimiento',
+  'tipoDocumento', 'numeroDocumento', 'dorsal', 'posicion',
+] as const;
+
+const CSV_HEADER_ALIASES: Record<string, string> = {
+  club: 'club', categoria: 'categoria', 'categoría': 'categoria',
+  nombres: 'nombres', nombre: 'nombres', apellidos: 'apellidos', apellido: 'apellidos',
+  fechanacimiento: 'fechaNacimiento', 'fecha de nacimiento': 'fechaNacimiento', 'fecha_nacimiento': 'fechaNacimiento',
+  tipodocumento: 'tipoDocumento', 'tipo de documento': 'tipoDocumento', 'tipo_documento': 'tipoDocumento',
+  numerodocumento: 'numeroDocumento', 'número de documento': 'numeroDocumento', 'numero_documento': 'numeroDocumento',
+  cedula: 'numeroDocumento', 'cédula': 'numeroDocumento',
+  dorsal: 'dorsal', numero: 'dorsal',
+  posicion: 'posicion', 'posición': 'posicion',
+};
+
+/** Parser CSV mínimo (RFC4180): soporta comillas, comas dentro de campos y \r\n. */
+function parseCsv(texto: string): string[][] {
+  const t = texto.replace(/^﻿/, ''); // BOM de Excel
+  const filas: string[][] = [];
+  let fila: string[] = [];
+  let campo = '';
+  let enComillas = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (enComillas) {
+      if (c === '"') {
+        if (t[i + 1] === '"') { campo += '"'; i++; } else { enComillas = false; }
+      } else campo += c;
+    } else if (c === '"') {
+      enComillas = true;
+    } else if (c === ',' || c === ';') {
+      fila.push(campo); campo = '';
+    } else if (c === '\n') {
+      fila.push(campo); campo = '';
+      filas.push(fila); fila = [];
+    } else if (c === '\r') {
+      // ignorar, el \n que sigue cierra la fila
+    } else {
+      campo += c;
+    }
+  }
+  if (campo.length > 0 || fila.length > 0) { fila.push(campo); filas.push(fila); }
+  return filas.filter((f) => f.some((c) => c.trim() !== ''));
+}
+
+type FilaImportar = Record<string, string>;
+
+function filasDesdeCsv(texto: string): { filas: FilaImportar[]; error?: string } {
+  const tabla = parseCsv(texto);
+  if (tabla.length === 0) return { filas: [], error: 'El archivo está vacío.' };
+  const headers = tabla[0].map((h) => CSV_HEADER_ALIASES[h.trim().toLowerCase()] || h.trim());
+  const faltantes = ['club', 'categoria', 'nombres', 'apellidos', 'fechaNacimiento'].filter((c) => !headers.includes(c));
+  if (faltantes.length) {
+    return { filas: [], error: `Faltan columnas obligatorias en el CSV: ${faltantes.join(', ')}.` };
+  }
+  const filas = tabla.slice(1).map((cols) => {
+    const obj: FilaImportar = {};
+    headers.forEach((h, i) => { obj[h] = (cols[i] ?? '').trim(); });
+    return obj;
+  });
+  return { filas };
+}
+
+function descargarPlantillaCsv() {
+  const contenido = [
+    CSV_HEADERS.join(','),
+    'Salamanca,Sub16,Juan,Pérez,2011-03-15,CI,30123456,10,Delantero',
+  ].join('\r\n');
+  const blob = new Blob([`﻿${contenido}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'plantilla-jugadores.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+type DiagnosticoFila = {
+  indice: number; ok: boolean; errores: string[]; alertas: string[];
+  datos: { nombres: string; apellidos: string; club: string; categoria: string; equipoNombre?: string; estadoValidacion: string };
+};
+
+function ImportarJugadoresModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const [filas, setFilas] = React.useState<FilaImportar[] | null>(null);
+  const [diagnostico, setDiagnostico] = React.useState<DiagnosticoFila[] | null>(null);
+  const [errorArchivo, setErrorArchivo] = React.useState<string | null>(null);
+  const [validando, setValidando] = React.useState(false);
+  const [confirmando, setConfirmando] = React.useState(false);
+  const [resumen, setResumen] = React.useState<string | null>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  const validar = async (filasCsv: FilaImportar[]) => {
+    setValidando(true);
+    try {
+      const r = await api.post('/jugadores/importar', { filas: filasCsv, confirmar: false });
+      setDiagnostico(r.data.filas);
+    } catch (e) {
+      setErrorArchivo(getApiErrorMessage(e));
+    } finally {
+      setValidando(false);
+    }
+  };
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrorArchivo(null); setDiagnostico(null); setResumen(null);
+    const texto = await file.text();
+    const { filas: parseadas, error } = filasDesdeCsv(texto);
+    if (error) { setErrorArchivo(error); setFilas(null); return; }
+    if (parseadas.length === 0) { setErrorArchivo('El CSV no tiene filas de datos.'); return; }
+    setFilas(parseadas);
+    await validar(parseadas);
+  };
+
+  const confirmar = async () => {
+    if (!filas) return;
+    setConfirmando(true);
+    setErrorArchivo(null);
+    try {
+      const r = await api.post('/jugadores/importar', { filas, confirmar: true });
+      setResumen(`Se crearon ${r.data.jugadorIds?.length ?? 0} jugador(es).`);
+      onImported();
+    } catch (e) {
+      setErrorArchivo(getApiErrorMessage(e));
+    } finally {
+      setConfirmando(false);
+    }
+  };
+
+  const validas = diagnostico?.filter((f) => f.ok).length ?? 0;
+  const invalidas = (diagnostico?.length ?? 0) - validas;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card border rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b sticky top-0 bg-card z-10 flex items-center justify-between">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5" /> Importar jugadores desde CSV
+          </h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="rounded-md border border-dashed p-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Columnas: <code>club, categoria, nombres, apellidos, fechaNacimiento</code> (obligatorias) y
+              {' '}<code>tipoDocumento, numeroDocumento, dorsal, posicion</code> (opcionales). El club y la categoría
+              tienen que coincidir exactamente con un equipo ya creado. Fecha en formato AAAA-MM-DD o DD/MM/AAAA.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={descargarPlantillaCsv}>
+                <Download className="h-3.5 w-3.5" /> Descargar plantilla CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                <Upload className="h-3.5 w-3.5" /> Elegir archivo CSV
+              </Button>
+              <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFileChange} />
+            </div>
+          </div>
+
+          {errorArchivo && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errorArchivo}
+            </div>
+          )}
+          {resumen && (
+            <div className="rounded-md border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+              {resumen}
+            </div>
+          )}
+
+          {validando && <p className="text-sm text-muted-foreground">Validando…</p>}
+
+          {diagnostico && diagnostico.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="outline">{diagnostico.length} fila(s)</Badge>
+                <Badge variant="success">{validas} OK</Badge>
+                {invalidas > 0 && <Badge variant="destructive">{invalidas} con error</Badge>}
+              </div>
+              <div className="border rounded-md overflow-x-auto max-h-96">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left">#</th>
+                      <th className="px-3 py-2 text-left">Jugador</th>
+                      <th className="px-3 py-2 text-left">Club / Categoría</th>
+                      <th className="px-3 py-2 text-left">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diagnostico.map((f) => (
+                      <tr key={f.indice} className="border-t align-top">
+                        <td className="px-3 py-2 text-muted-foreground">{f.indice + 1}</td>
+                        <td className="px-3 py-2">{f.datos.apellidos}, {f.datos.nombres}</td>
+                        <td className="px-3 py-2">{f.datos.club} · {f.datos.categoria}</td>
+                        <td className="px-3 py-2">
+                          {f.ok ? (
+                            <Badge variant="success">OK{f.alertas.length ? ' (observado)' : ''}</Badge>
+                          ) : (
+                            <div className="space-y-1">
+                              <Badge variant="destructive">Error</Badge>
+                              <ul className="text-xs text-destructive list-disc pl-4">
+                                {f.errores.map((err, i) => <li key={i}>{err}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {invalidas > 0 && (
+                <p className="text-xs text-amber-600">
+                  Corregí las filas con error en el CSV y volvé a elegir el archivo. No se puede confirmar
+                  la importación mientras haya errores.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t sticky bottom-0 bg-card flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cerrar</Button>
+          <Button
+            onClick={confirmar}
+            disabled={!diagnostico || diagnostico.length === 0 || invalidas > 0 || confirmando}
+          >
+            {confirmando ? 'Importando…' : `Confirmar importación${diagnostico ? ` (${validas})` : ''}`}
+          </Button>
+        </div>
       </div>
     </div>
   );

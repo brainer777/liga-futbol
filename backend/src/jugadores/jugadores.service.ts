@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateJugadorDto, UpdateJugadorDto } from './dto/jugadores.dto';
 import { CreateDocumentoDto, UpdateDocumentoDto } from './dto/documentos.dto';
 import { CreateEquipoJugadorDto, UpdateEquipoJugadorDto } from './dto/equipo-jugadores.dto';
+import { ImportarJugadorFilaDto, ImportarJugadoresDto } from './dto/importar-jugadores.dto';
 import { validarJugador, CategoriaReglas } from './edad.validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -310,5 +311,155 @@ export class JugadoresService {
     if (!ej) throw new NotFoundException(`Registro ${id} no encontrado`);
     await this.prisma.equipoJugador.delete({ where: { id } });
     return { ok: true };
+  }
+
+  // ============================
+  // IMPORTACIÓN MASIVA (CSV)
+  // ============================
+
+  private parseFechaImportada(valor: string): Date | null {
+    const v = valor.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const d = new Date(`${v}T00:00:00`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const dm = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dm) {
+      const [, dd, mm, yyyy] = dm;
+      const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  /** Valida cada fila contra los equipos reales de la liga, sin persistir nada. */
+  private async diagnosticarImportacion(filas: ImportarJugadorFilaDto[]) {
+    const equipos = await this.prisma.equipo.findMany({ include: { club: true, categoria: true } });
+    const claveEquipo = (club: string, categoria: string) =>
+      `${club.trim().toLowerCase()}|${categoria.trim().toLowerCase()}`;
+    const equipoPorClave = new Map(equipos.map((e) => [claveEquipo(e.club.nombre, e.categoria.nombre), e]));
+
+    return filas.map((fila, indice) => {
+      const errores: string[] = [];
+      const nombres = (fila.nombres || '').trim();
+      const apellidos = (fila.apellidos || '').trim();
+      if (!nombres) errores.push('Falta el nombre.');
+      if (!apellidos) errores.push('Falta el apellido.');
+
+      const equipo = equipoPorClave.get(claveEquipo(fila.club || '', fila.categoria || ''));
+      if (!equipo) {
+        errores.push(`No existe el equipo "${fila.club}" en la categoría "${fila.categoria}".`);
+      }
+
+      const fechaNacimiento = this.parseFechaImportada(fila.fechaNacimiento || '');
+      if (!fechaNacimiento) errores.push('Fecha de nacimiento inválida (usar AAAA-MM-DD o DD/MM/AAAA).');
+
+      let anioNacimiento: number | undefined;
+      if (fila.anioNacimiento) {
+        anioNacimiento = Number(fila.anioNacimiento);
+        if (!Number.isInteger(anioNacimiento) || anioNacimiento < 1900) {
+          errores.push('Año de nacimiento inválido.');
+          anioNacimiento = undefined;
+        }
+      }
+
+      let dorsal: number | undefined;
+      if (fila.dorsal) {
+        dorsal = Number(fila.dorsal);
+        if (!Number.isInteger(dorsal) || dorsal < 1 || dorsal > 99) {
+          errores.push('Dorsal inválido (1-99).');
+          dorsal = undefined;
+        }
+      }
+
+      let alertas: string[] = [];
+      let estadoValidacion: 'habilitado' | 'observado' | 'rechazado' = 'observado';
+      if (equipo && fechaNacimiento) {
+        const reglas: CategoriaReglas = {
+          nombre: equipo.categoria.nombre,
+          edadMinima: equipo.categoria.edadMinima,
+          edadMaxima: equipo.categoria.edadMaxima,
+          permiteSinCedula: equipo.categoria.permiteSinCedula,
+          validaPorAnioNacimiento: equipo.categoria.validaPorAnioNacimiento,
+        };
+        const resultado = validarJugador(reglas, {
+          fechaNacimiento,
+          anioNacimiento,
+          tipoDocumento: fila.tipoDocumento || undefined,
+          numeroDocumento: fila.numeroDocumento || undefined,
+        });
+        alertas = resultado.alertas;
+        estadoValidacion = resultado.nivel === 'ok' ? 'habilitado' : resultado.nivel === 'rechazado' ? 'rechazado' : 'observado';
+      }
+
+      return {
+        indice,
+        ok: errores.length === 0,
+        errores,
+        alertas,
+        datos: {
+          nombres,
+          apellidos,
+          club: fila.club,
+          categoria: fila.categoria,
+          equipoId: equipo?.id,
+          equipoNombre: equipo?.nombre,
+          fechaNacimiento: fechaNacimiento?.toISOString().slice(0, 10),
+          anioNacimiento,
+          tipoDocumento: fila.tipoDocumento || undefined,
+          numeroDocumento: fila.numeroDocumento || undefined,
+          dorsal,
+          posicion: fila.posicion || undefined,
+          estadoValidacion,
+        },
+      };
+    });
+  }
+
+  async importar(dto: ImportarJugadoresDto) {
+    const diagnostico = await this.diagnosticarImportacion(dto.filas);
+    const validas = diagnostico.filter((f) => f.ok).length;
+    const invalidas = diagnostico.length - validas;
+
+    if (!dto.confirmar) {
+      return { total: diagnostico.length, validas, invalidas, filas: diagnostico, creado: false };
+    }
+    if (invalidas > 0) {
+      throw new BadRequestException({
+        message: `Hay ${invalidas} fila(s) con errores; corregilas antes de confirmar la importación.`,
+        filas: diagnostico,
+      });
+    }
+
+    const creados = await this.prisma.$transaction(async (tx) => {
+      const ids: string[] = [];
+      for (const f of diagnostico) {
+        const d = f.datos;
+        const jugador = await tx.jugador.create({
+          data: {
+            nombres: d.nombres,
+            apellidos: d.apellidos,
+            fechaNacimiento: new Date(`${d.fechaNacimiento}T00:00:00`),
+            anioNacimiento: d.anioNacimiento,
+            tipoDocumento: d.tipoDocumento,
+            numeroDocumento: d.numeroDocumento,
+            estadoValidacion: d.estadoValidacion,
+          },
+        });
+        await tx.equipoJugador.create({
+          data: {
+            equipoId: d.equipoId!,
+            jugadorId: jugador.id,
+            dorsal: d.dorsal,
+            posicion: d.posicion,
+            estadoHabilitacion: d.estadoValidacion === 'habilitado' ? 'habilitado' : 'observado',
+          },
+        });
+        ids.push(jugador.id);
+      }
+      return ids;
+    });
+
+    return { total: diagnostico.length, validas, invalidas: 0, filas: diagnostico, creado: true, jugadorIds: creados };
   }
 }

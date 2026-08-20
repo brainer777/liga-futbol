@@ -6,6 +6,7 @@ import { JugadoresService } from './jugadores.service';
 import { CreateJugadorDto, UpdateJugadorDto } from './dto/jugadores.dto';
 import { CreateDocumentoDto, UpdateDocumentoDto } from './dto/documentos.dto';
 import { CreateEquipoJugadorDto, UpdateEquipoJugadorDto } from './dto/equipo-jugadores.dto';
+import { ImportarJugadoresDto } from './dto/importar-jugadores.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -41,6 +42,17 @@ export class JugadoresController {
   @Roles('Superadministrador', 'Administrador de liga', 'Coordinador', 'Delegado de equipo', 'Digitador')
   create(@Body() dto: CreateJugadorDto, @CurrentUser('id') userId: string) {
     return this.service.create(dto, userId);
+  }
+
+  /**
+   * Importación masiva desde CSV. Sin `confirmar` (o `false`) solo valida y
+   * devuelve el diagnóstico por fila; con `confirmar: true` crea todo en una
+   * transacción (si hay filas con error, no crea nada).
+   */
+  @Post('importar')
+  @Roles('Superadministrador', 'Administrador de liga', 'Coordinador', 'Delegado de equipo', 'Digitador')
+  importar(@Body() dto: ImportarJugadoresDto) {
+    return this.service.importar(dto);
   }
 
   @Patch(':id')
